@@ -3,9 +3,9 @@ import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
+    full_name: {
       type: String,
-      required: [true, "Name is required"],
+      required: [true, "Full name is required"],
       trim: true,
       minlength: 2,
       maxlength: 100,
@@ -18,18 +18,25 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, "Please enter a valid email"],
     },
+    phone: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     passwordHash: {
       type: String,
       required: true,
       select: false, // never returned in queries by default
     },
-    isAdmin: {
-      type: Boolean,
-      default: false,
+    role: {
+      type: String,
+      enum: ["admin", "customer"],
+      default: "customer",
     },
-    isTutor: {
-      type: Boolean,
-      default: false,
+    status: {
+      type: String,
+      enum: ["active", "inactive", "suspended"],
+      default: "active",
     },
   },
   {

@@ -5,7 +5,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
 /**
  * Middleware: Verify Bearer JWT from the Authorization header.
- * Attaches `req.user` with `{ userId, email, isAdmin, isTutor }` on success.
+ * Attaches `req.user` with `{ userId, email, role, status }` on success.
  */
 export const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -33,7 +33,7 @@ export const verifyToken = (req, res, next) => {
  * Must be used AFTER `verifyToken`.
  */
 export const requireAdmin = (req, res, next) => {
-  if (!req.user?.isAdmin) {
+  if (req.user?.role !== "admin") {
     return res.status(403).json({ message: "Admin access required." });
   }
   next();
@@ -49,9 +49,8 @@ export const signToken = (user) => {
     {
       userId: user._id,
       email: user.email,
-      name: user.name,
-      isAdmin: user.isAdmin,
-      isTutor: user.isTutor,
+      role: user.role,
+      status: user.status,
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }

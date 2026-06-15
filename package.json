@@ -8,7 +8,8 @@
     "dev": "nodemon --ext js,ts --exec node --loader ts-node/esm server.js",
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "ng test"
+    "test": "ng test",
+    "seed": "node seed.js"
   },
   "private": true,
   "dependencies": {

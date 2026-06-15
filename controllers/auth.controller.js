@@ -5,10 +5,10 @@ import { signToken } from "../middlewares/auth.middleware.js";
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { full_name, email, password, phone } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email and password are required." });
+    if (!full_name || !email || !password) {
+      return res.status(400).json({ message: "Full name, email and password are required." });
     }
 
     if (password.length < 6) {
@@ -21,17 +21,17 @@ export const register = async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ name, email, passwordHash });
+    const user = await User.create({ full_name, email, passwordHash, phone: phone || null });
 
     const token = signToken(user);
 
     res.status(201).json({
       token,
       userId: user._id,
-      name: user.name,
+      full_name: user.full_name,
       email: user.email,
-      isAdmin: user.isAdmin,
-      isTutor: user.isTutor,
+      role: user.role,
+      status: user.status,
     });
   } catch (err) {
     console.error("[Auth] Register error:", err);
@@ -54,6 +54,10 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
+    if (user.status === "suspended") {
+      return res.status(403).json({ message: "Your account has been suspended." });
+    }
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password." });
@@ -64,10 +68,10 @@ export const login = async (req, res) => {
     res.json({
       token,
       userId: user._id,
-      name: user.name,
+      full_name: user.full_name,
       email: user.email,
-      isAdmin: user.isAdmin,
-      isTutor: user.isTutor,
+      role: user.role,
+      status: user.status,
     });
   } catch (err) {
     console.error("[Auth] Login error:", err);
@@ -85,10 +89,11 @@ export const me = async (req, res) => {
 
     res.json({
       userId: user._id,
-      name: user.name,
+      full_name: user.full_name,
       email: user.email,
-      isAdmin: user.isAdmin,
-      isTutor: user.isTutor,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
     });
   } catch (err) {
     console.error("[Auth] Me error:", err);
