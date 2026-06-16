@@ -30,8 +30,19 @@ export const getProducts = async ({
     Product.countDocuments(filter),
   ]);
 
+  // Populate images and variants for each product in the listing
+  const populatedDocs = await Promise.all(
+    docs.map(async (doc) => {
+      const [images, variants] = await Promise.all([
+        ProductImage.find({ product_id: doc._id }).sort({ sort_order: 1 }).lean(),
+        ProductVariant.find({ product_id: doc._id, is_active: true }).lean(),
+      ]);
+      return { ...doc, images, variants };
+    })
+  );
+
   return {
-    products: docs,
+    products: populatedDocs,
     pagination: {
       page,
       limit,
