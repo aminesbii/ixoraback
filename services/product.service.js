@@ -1,6 +1,4 @@
-import Product from "../models/product.model.js";
-import ProductImage from "../models/product_image.model.js";
-import ProductVariant from "../models/product_variant.model.js";
+import prisma from "../config/prisma.js";
 
 // ─── LIST PRODUCTS (paginated, filterable) ───────────────────────────────────
 export const getProducts = async ({
@@ -12,40 +10,51 @@ export const getProducts = async ({
   search,
   sort = "-createdAt",
 } = {}) => {
-  const filter = {};
-  if (status) filter.status = status;
-  if (category_id) filter.category_id = category_id;
-  if (is_featured !== undefined) filter.is_featured = is_featured;
-  if (search) filter.$text = { $search: search };
+  const where = {};
+  if (status) where.status = status.toUpperCase();
+  if (category_id) where.category_id = category_id;
+  if (is_featured !== undefined) where.is_featured = String(is_featured) === 'true';
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { brand_name: { contains: search, mode: 'insensitive' } },
+      { short_description: { contains: search, mode: 'insensitive' } },
+    ];
+  }
 
   const skip = (page - 1) * limit;
+  let orderBy = { createdAt: 'desc' };
+
+  if (sort === "createdAt") orderBy = { createdAt: 'asc' };
+  else if (sort === "-createdAt") orderBy = { createdAt: 'desc' };
 
   const [docs, total] = await Promise.all([
-    Product.find(filter)
-      .populate("category_id", "name slug")
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Product.countDocuments(filter),
+    prisma.product.findMany({
+      where,
+      orderBy,
+      skip,
+      take: Number(limit),
+      include: {
+        category: {
+          select: { name: true, slug: true }
+        },
+        images: {
+          orderBy: { sort_order: 'asc' }
+        },
+        variants: {
+          where: { is_active: true }
+        }
+      }
+    }),
+    prisma.product.count({ where }),
   ]);
 
-  // Populate images and variants for each product in the listing
-  const populatedDocs = await Promise.all(
-    docs.map(async (doc) => {
-      const [images, variants] = await Promise.all([
-        ProductImage.find({ product_id: doc._id }).sort({ sort_order: 1 }).lean(),
-        ProductVariant.find({ product_id: doc._id, is_active: true }).lean(),
-      ]);
-      return { ...doc, images, variants };
-    })
-  );
-
   return {
-    products: populatedDocs,
+    products: docs,
     pagination: {
-      page,
-      limit,
+      page: Number(page),
+      limit: Number(limit),
       total,
       pages: Math.ceil(total / limit),
     },
@@ -54,88 +63,98 @@ export const getProducts = async ({
 
 // ─── GET BY ID (with images & variants) ──────────────────────────────────────
 export const getProductById = async (id) => {
-  const product = await Product.findById(id)
-    .populate("category_id", "name slug")
-    .lean();
-  if (!product) return null;
-
-  const [images, variants] = await Promise.all([
-    ProductImage.find({ product_id: id }).sort({ sort_order: 1 }).lean(),
-    ProductVariant.find({ product_id: id, is_active: true }).lean(),
-  ]);
-
-  return { ...product, images, variants };
+  try {
+    return await prisma.product.findUnique({
+      where: { id },
+      include: {
+        category: { select: { name: true, slug: true } },
+        images: { orderBy: { sort_order: 'asc' } },
+        variants: { where: { is_active: true } }
+      }
+    });
+  } catch (e) { return null; }
 };
 
 // ─── GET BY SLUG ─────────────────────────────────────────────────────────────
 export const getProductBySlug = async (slug) => {
-  const product = await Product.findOne({ slug })
-    .populate("category_id", "name slug")
-    .lean();
-  if (!product) return null;
-
-  const [images, variants] = await Promise.all([
-    ProductImage.find({ product_id: product._id }).sort({ sort_order: 1 }).lean(),
-    ProductVariant.find({ product_id: product._id, is_active: true }).lean(),
-  ]);
-
-  return { ...product, images, variants };
+  try {
+    return await prisma.product.findUnique({
+      where: { slug },
+      include: {
+        category: { select: { name: true, slug: true } },
+        images: { orderBy: { sort_order: 'asc' } },
+        variants: { where: { is_active: true } }
+      }
+    });
+  } catch (e) { return null; }
 };
 
 // ─── CREATE ──────────────────────────────────────────────────────────────────
-export const createProduct = (data) => Product.create(data);
+export const createProduct = (data) => {
+  if (data.status) data.status = data.status.toUpperCase();
+  return prisma.product.create({ data });
+}
 
 // ─── UPDATE ──────────────────────────────────────────────────────────────────
-export const updateProduct = (id, data) =>
-  Product.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+export const updateProduct = async (id, data) => {
+  try {
+    if (data.status) data.status = data.status.toUpperCase();
+    return await prisma.product.update({ where: { id }, data });
+  } catch (e) { return null; }
+}
 
 // ─── DELETE (cascade images & variants) ──────────────────────────────────────
 export const deleteProduct = async (id) => {
-  await Promise.all([
-    ProductImage.deleteMany({ product_id: id }),
-    ProductVariant.deleteMany({ product_id: id }),
-  ]);
-  return Product.findByIdAndDelete(id);
+  try {
+    await prisma.productImage.deleteMany({ where: { product_id: id } });
+    await prisma.productVariant.deleteMany({ where: { product_id: id } });
+    return await prisma.product.delete({ where: { id } });
+  } catch (e) { return null; }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Product Images
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const addProductImage = (data) => ProductImage.create(data);
+export const addProductImage = (data) => prisma.productImage.create({ data });
 
 export const getProductImages = (productId) =>
-  ProductImage.find({ product_id: productId }).sort({ sort_order: 1 }).lean();
+  prisma.productImage.findMany({ where: { product_id: productId }, orderBy: { sort_order: 'asc' } });
 
-export const updateProductImage = (id, data) =>
-  ProductImage.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+export const updateProductImage = async (id, data) => {
+  try { return await prisma.productImage.update({ where: { id }, data }); } catch (e) { return null; }
+};
 
-export const deleteProductImage = (id) => ProductImage.findByIdAndDelete(id);
+export const deleteProductImage = async (id) => {
+  try { return await prisma.productImage.delete({ where: { id } }); } catch (e) { return null; }
+};
 
 export const setMainImage = async (productId, imageId) => {
-  await ProductImage.updateMany({ product_id: productId }, { is_main: false });
-  return ProductImage.findByIdAndUpdate(imageId, { is_main: true }, { new: true });
+  await prisma.productImage.updateMany({ where: { product_id: productId }, data: { is_main: false } });
+  return prisma.productImage.update({ where: { id: imageId }, data: { is_main: true } });
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Product Variants
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const addProductVariant = (data) => ProductVariant.create(data);
+export const addProductVariant = (data) => prisma.productVariant.create({ data });
 
 export const getProductVariants = (productId) =>
-  ProductVariant.find({ product_id: productId }).lean();
+  prisma.productVariant.findMany({ where: { product_id: productId } });
 
-export const updateProductVariant = (id, data) =>
-  ProductVariant.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+export const updateProductVariant = async (id, data) => {
+  try { return await prisma.productVariant.update({ where: { id }, data }); } catch (e) { return null; }
+};
 
-export const deleteProductVariant = (id) => ProductVariant.findByIdAndDelete(id);
+export const deleteProductVariant = async (id) => {
+  try { return await prisma.productVariant.delete({ where: { id } }); } catch (e) { return null; }
+};
 
 export const adjustStock = async (variantId, delta) => {
-  const variant = await ProductVariant.findById(variantId);
+  const variant = await prisma.productVariant.findUnique({ where: { id: variantId } });
   if (!variant) throw new Error("Variant not found");
   const newQty = variant.stock_qty + delta;
   if (newQty < 0) throw new Error("Insufficient stock");
-  variant.stock_qty = newQty;
-  return variant.save();
+  return prisma.productVariant.update({ where: { id: variantId }, data: { stock_qty: newQty } });
 };

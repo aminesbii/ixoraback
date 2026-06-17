@@ -1,4 +1,4 @@
-import { createClient } from "redis";
+import { Redis } from "ioredis";
 import dotenv from "dotenv";
 import path from "path";
 
@@ -9,20 +9,16 @@ const redisUrl = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 
 console.log(`[Redis] Initializing client for URL: ${redisUrl}`);
 
-const redisClient = createClient({
-  url: redisUrl,
-  socket: {
-    reconnectStrategy: (retries) => {
-      // Limit reconnect attempts to avoid spamming the console
-      if (retries > 5) {
-        console.warn("[Redis] Max reconnection attempts reached. Caching will be bypassed.");
-        return false; // stop reconnecting
-      }
-      const delay = Math.min(retries * 1000, 3000);
-      return delay;
-    },
-    connectTimeout: 3000 // 3 seconds timeout
-  }
+const redisClient = new Redis(redisUrl, {
+  retryStrategy(times: number) {
+    if (times > 5) {
+      console.warn("[Redis] Max reconnection attempts reached. Caching will be bypassed.");
+      return null;
+    }
+    return Math.min(times * 1000, 3000);
+  },
+  connectTimeout: 3000,
+  lazyConnect: true
 });
 
 // Listeners to prevent unhandled crashes

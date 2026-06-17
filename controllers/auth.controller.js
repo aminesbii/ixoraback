@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import User from "../models/user.model.js";
+import prisma from "../config/prisma.js";
 import { signToken } from "../middlewares/auth.middleware.js";
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
@@ -15,19 +15,26 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "Password must be at least 6 characters." });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (existing) {
       return res.status(409).json({ message: "An account with this email already exists." });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ full_name, email, passwordHash, phone: phone || null });
+    const user = await prisma.user.create({
+      data: {
+        full_name,
+        email: email.toLowerCase(),
+        passwordHash,
+        phone: phone || null
+      }
+    });
 
     const token = signToken(user);
 
     res.status(201).json({
       token,
-      userId: user._id,
+      userId: user.id,
       full_name: user.full_name,
       email: user.email,
       role: user.role,
@@ -48,8 +55,7 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required." });
     }
 
-    // Explicitly select passwordHash since it is excluded by default
-    const user = await User.findOne({ email: email.toLowerCase() }).select("+passwordHash");
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
@@ -58,7 +64,7 @@ export const login = async (req, res) => {
       return res.status(403).json({ message: "Your account has been suspended." });
     }
 
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
@@ -67,7 +73,7 @@ export const login = async (req, res) => {
 
     res.json({
       token,
-      userId: user._id,
+      userId: user.id,
       full_name: user.full_name,
       email: user.email,
       role: user.role,
@@ -82,13 +88,13 @@ export const login = async (req, res) => {
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
 export const me = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
 
     res.json({
-      userId: user._id,
+      userId: user.id,
       full_name: user.full_name,
       email: user.email,
       phone: user.phone,

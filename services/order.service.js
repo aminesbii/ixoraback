@@ -1,63 +1,32 @@
 import crypto from "crypto";
-import Order from "../models/order.model.js";
-import OrderItem from "../models/order_item.model.js";
-import Address from "../models/address.model.js";
-import Cart from "../models/cart.model.js";
-import CartItem from "../models/cart_item.model.js";
-import ProductVariant from "../models/product_variant.model.js";
+import prisma from "../config/prisma.js";
 
-// ─── GENERATE ORDER NUMBER ──────────────────────────────────────────────────
 const generateOrderNumber = () => {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const rand = crypto.randomBytes(3).toString("hex").toUpperCase();
   return `XOR-${date}-${rand}`;
 };
 
-// ─── CREATE ORDER FROM CART ─────────────────────────────────────────────────
 export const createOrderFromCart = async ({
-  cartId,
-  userId,
-  sessionToken,
-  customerName,
-  customerEmail,
-  customerPhone,
-  shippingAddress,
-  billingAddress,
-  shippingFee = 0,
-  discountTotal = 0,
-  taxTotal = 0,
-  currency = "MAD",
+  cartId, userId, sessionToken, customerName, customerEmail, customerPhone, shippingAddress, billingAddress, shippingFee = 0, discountTotal = 0, taxTotal = 0, currency = "MAD",
 }) => {
-  // 1. Load cart items
-  const cartItems = await CartItem.find({ cart_id: cartId })
-    .populate("product_id", "name")
-    .populate("variant_id", "sku price stock_qty variant_name");
-
+  const cartItems = await prisma.cartItem.findMany({ where: { cart_id: cartId }, include: { product: true, variant: true } });
   if (!cartItems.length) throw new Error("Cart is empty");
 
-  // 2. Validate stock and build order items
-  const orderItems = [];
-  let subtotal = 0;
-
+  const orderItems = []; let subtotal = 0;
   for (const item of cartItems) {
-    // Validate stock if variant exists
     if (item.variant_id) {
-      const variant = await ProductVariant.findById(item.variant_id._id || item.variant_id);
-      if (!variant || variant.stock_qty < item.quantity) {
-        throw new Error(
-          `Insufficient stock for "${item.product_id?.name || "unknown"}" (variant: ${variant?.variant_name || "N/A"})`
-        );
+      if (!item.variant || item.variant.stock_qty < item.quantity) {
+        throw new Error(`Insufficient stock for "${item.product?.name}"`);
       }
     }
-
     const lineTotal = item.unit_price * item.quantity;
     subtotal += lineTotal;
-
     orderItems.push({
-      product_id: item.product_id._id || item.product_id,
-      variant_id: item.variant_id?._id || item.variant_id || null,
-      product_name_snapshot: item.product_id?.name || "Unknown Product",
-      sku_snapshot: item.variant_id?.sku || null,
+      product_id: item.product_id,
+      variant_id: item.variant_id,
+      product_name_snapshot: item.product?.name || "Unknown Product",
+      sku_snapshot: item.variant?.sku || null,
       unit_price_snapshot: item.unit_price,
       quantity: item.quantity,
       line_total: lineTotal,
@@ -66,119 +35,70 @@ export const createOrderFromCart = async ({
 
   const grandTotal = subtotal - discountTotal + shippingFee + taxTotal;
 
-  // 3. Create the order
-  const order = await Order.create({
-    user_id: userId || null,
-    session_token: sessionToken || null,
-    order_number: generateOrderNumber(),
-    customer_name: customerName,
-    customer_email: customerEmail,
-    customer_phone: customerPhone || null,
-    status: "pending",
-    subtotal,
-    discount_total: discountTotal,
-    shipping_fee: shippingFee,
-    tax_total: taxTotal,
-    grand_total: grandTotal,
-    currency,
+  const order = await prisma.order.create({
+    data: {
+      user_id: userId || null, session_token: sessionToken || null, order_number: generateOrderNumber(),
+      customer_name: customerName, customer_email: customerEmail, customer_phone: customerPhone || null,
+      status: "PENDING", subtotal, discount_total: discountTotal, shipping_fee: shippingFee,
+      tax_total: taxTotal, grand_total: grandTotal, currency,
+      orderItems: { create: orderItems },
+      addresses: {
+        create: [
+          ...(shippingAddress ? [{ ...shippingAddress, user_id: userId || null, type: "SHIPPING" }] : []),
+          ...(billingAddress ? [{ ...billingAddress, user_id: userId || null, type: "BILLING" }] : [])
+        ]
+      }
+    },
+    include: { orderItems: true, addresses: true }
   });
 
-  // 4. Create order items
-  const items = await OrderItem.insertMany(
-    orderItems.map((oi) => ({ ...oi, order_id: order._id }))
-  );
-
-  // 5. Create addresses linked to order
-  const addresses = [];
-  if (shippingAddress) {
-    addresses.push(
-      await Address.create({
-        ...shippingAddress,
-        order_id: order._id,
-        user_id: userId || null,
-        type: "shipping",
-      })
-    );
-  }
-  if (billingAddress) {
-    addresses.push(
-      await Address.create({
-        ...billingAddress,
-        order_id: order._id,
-        user_id: userId || null,
-        type: "billing",
-      })
-    );
-  }
-
-  // 6. Deduct stock
   for (const item of cartItems) {
     if (item.variant_id) {
-      await ProductVariant.findByIdAndUpdate(
-        item.variant_id._id || item.variant_id,
-        { $inc: { stock_qty: -item.quantity } }
-      );
+      await prisma.productVariant.update({ where: { id: item.variant_id }, data: { stock_qty: { decrement: item.quantity } } });
     }
   }
 
-  // 7. Mark cart as converted
-  await CartItem.deleteMany({ cart_id: cartId });
-  await Cart.findByIdAndUpdate(cartId, { status: "converted" });
+  await prisma.cartItem.deleteMany({ where: { cart_id: cartId } });
+  await prisma.cart.update({ where: { id: cartId }, data: { status: "CONVERTED" } });
 
-  return { order, items, addresses };
+  return { order, items: order.orderItems, addresses: order.addresses };
 };
 
-// ─── GET ORDER BY ID ────────────────────────────────────────────────────────
 export const getOrderById = async (orderId) => {
-  const order = await Order.findById(orderId).lean();
-  if (!order) return null;
-
-  const [items, addresses] = await Promise.all([
-    OrderItem.find({ order_id: orderId }).lean(),
-    Address.find({ order_id: orderId }).lean(),
-  ]);
-
-  return { ...order, items, addresses };
+  try {
+    const order = await prisma.order.findUnique({ where: { id: orderId }, include: { orderItems: true, addresses: true } });
+    if (!order) return null;
+    return { ...order, items: order.orderItems };
+  } catch (e) { return null; }
 };
 
-// ─── GET ORDER BY ORDER NUMBER ──────────────────────────────────────────────
 export const getOrderByNumber = async (orderNumber) => {
-  const order = await Order.findOne({ order_number: orderNumber }).lean();
-  if (!order) return null;
-
-  const [items, addresses] = await Promise.all([
-    OrderItem.find({ order_id: order._id }).lean(),
-    Address.find({ order_id: order._id }).lean(),
-  ]);
-
-  return { ...order, items, addresses };
+  try {
+    const order = await prisma.order.findUnique({ where: { order_number: orderNumber }, include: { orderItems: true, addresses: true } });
+    if (!order) return null;
+    return { ...order, items: order.orderItems };
+  } catch (e) { return null; }
 };
 
-// ─── LIST ORDERS (admin or per-user, paginated) ─────────────────────────────
-export const getOrders = async ({
-  page = 1,
-  limit = 20,
-  userId,
-  status,
-  sort = "-createdAt",
-} = {}) => {
-  const filter = {};
-  if (userId) filter.user_id = userId;
-  if (status) filter.status = status;
+export const getOrders = async ({ page = 1, limit = 20, userId, status, sort = "-createdAt" } = {}) => {
+  const where = {};
+  if (userId) where.user_id = userId;
+  if (status) where.status = status.toUpperCase();
 
   const skip = (page - 1) * limit;
+  let orderBy = { createdAt: 'desc' };
+  if (sort === "createdAt") orderBy = { createdAt: 'asc' };
 
   const [docs, total] = await Promise.all([
-    Order.find(filter).sort(sort).skip(skip).limit(limit).lean(),
-    Order.countDocuments(filter),
+    prisma.order.findMany({ where, orderBy, skip, take: Number(limit) }),
+    prisma.order.count({ where }),
   ]);
 
-  return {
-    orders: docs,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
-  };
+  return { orders: docs, pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / limit) } };
 };
 
-// ─── UPDATE ORDER STATUS ────────────────────────────────────────────────────
-export const updateOrderStatus = (orderId, status) =>
-  Order.findByIdAndUpdate(orderId, { status }, { new: true, runValidators: true });
+export const updateOrderStatus = async (orderId, status) => {
+  try {
+    return await prisma.order.update({ where: { id: orderId }, data: { status: status.toUpperCase() } });
+  } catch (e) { return null; }
+};

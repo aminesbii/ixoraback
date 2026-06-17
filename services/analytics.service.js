@@ -1,80 +1,80 @@
-import ProductEvent from "../models/product_event.model.js";
-import ProductPerformanceDaily from "../models/product_performance_daily.model.js";
+import prisma from "../config/prisma.js";
 
 // ─── TRACK EVENT ─────────────────────────────────────────────────────────────
 export const trackEvent = ({ productId, userId, sessionToken, eventType }) =>
-  ProductEvent.create({
-    product_id: productId,
-    user_id: userId || null,
-    session_token: sessionToken || null,
-    event_type: eventType,
+  prisma.productEvent.create({
+    data: {
+      product_id: productId,
+      user_id: userId || null,
+      session_token: sessionToken || null,
+      event_type: eventType,
+    }
   });
 
 // ─── GET DAILY PERFORMANCE (date range) ─────────────────────────────────────
-export const getDailyPerformance = async ({
-  productId,
-  startDate,
-  endDate,
-} = {}) => {
-  const filter = {};
-  if (productId) filter.product_id = productId;
+export const getDailyPerformance = async ({ productId, startDate, endDate } = {}) => {
+  const where = {};
+  if (productId) where.product_id = productId;
   if (startDate || endDate) {
-    filter.date = {};
-    if (startDate) filter.date.$gte = new Date(startDate);
-    if (endDate) filter.date.$lte = new Date(endDate);
+    where.date = {};
+    if (startDate) where.date.gte = new Date(startDate);
+    if (endDate) where.date.lte = new Date(endDate);
   }
 
-  return ProductPerformanceDaily.find(filter)
-    .sort({ date: -1 })
-    .populate("product_id", "name slug")
-    .lean();
+  return prisma.productPerformanceDaily.findMany({
+    where,
+    orderBy: { date: 'desc' },
+    include: { product: { select: { name: true, slug: true } } }
+  });
 };
 
 // ─── AGGREGATE EVENTS INTO DAILY PERFORMANCE ────────────────────────────────
-// Call this via a cron job or admin endpoint
 export const aggregateDaily = async (dateStr) => {
-  // dateStr = "YYYY-MM-DD"
   const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
   const dayEnd = new Date(`${dateStr}T23:59:59.999Z`);
 
-  const pipeline = [
-    { $match: { created_at: { $gte: dayStart, $lte: dayEnd } } },
-    {
-      $group: {
-        _id: { product_id: "$product_id", event_type: "$event_type" },
-        count: { $sum: 1 },
-      },
-    },
-    {
-      $group: {
-        _id: "$_id.product_id",
-        events: {
-          $push: { type: "$_id.event_type", count: "$count" },
-        },
-      },
-    },
-  ];
+  const events = await prisma.productEvent.groupBy({
+    by: ['product_id', 'event_type'],
+    where: { created_at: { gte: dayStart, lte: dayEnd } },
+    _count: { _all: true }
+  });
 
-  const results = await ProductEvent.aggregate(pipeline);
+  const productAggregations = {};
+  for (const e of events) {
+    if (!productAggregations[e.product_id]) productAggregations[e.product_id] = {};
+    productAggregations[e.product_id][e.event_type] = e._count._all;
+  }
 
-  const ops = results.map((r) => {
-    const counts = {};
-    for (const e of r.events) counts[e.type] = e.count;
+  const ops = [];
+  for (const productId of Object.keys(productAggregations)) {
+    const counts = productAggregations[productId];
 
-    return ProductPerformanceDaily.findOneAndUpdate(
-      { product_id: r._id, date: dayStart },
-      {
-        $set: {
+    const existing = await prisma.productPerformanceDaily.findFirst({ where: { product_id: productId, date: dayStart } });
+
+    if (existing) {
+      ops.push(prisma.productPerformanceDaily.update({
+        where: { id: existing.id },
+        data: {
           click_count: counts.click || 0,
           add_to_cart_count: counts.add_to_cart || 0,
           purchase_count: counts.purchase || 0,
-        },
-      },
-      { upsert: true, new: true }
-    );
-  });
+        }
+      }));
+    } else {
+      ops.push(prisma.productPerformanceDaily.create({
+        data: {
+          product_id: productId,
+          date: dayStart,
+          click_count: counts.click || 0,
+          add_to_cart_count: counts.add_to_cart || 0,
+          purchase_count: counts.purchase || 0,
+        }
+      }));
+    }
+  }
 
-  return Promise.all(ops);
+  if (ops.length === 0) return [];
+  return prisma.$transaction(ops);
 };
 
 // ─── TOP PRODUCTS (dashboard) ───────────────────────────────────────────────
@@ -85,33 +85,31 @@ export const getTopProducts = async ({ metric = "purchase_count", limit = 10, da
   const allowedMetrics = ["click_count", "add_to_cart_count", "purchase_count", "revenue_generated"];
   if (!allowedMetrics.includes(metric)) metric = "purchase_count";
 
-  return ProductPerformanceDaily.aggregate([
-    { $match: { date: { $gte: since } } },
-    {
-      $group: {
-        _id: "$product_id",
-        total: { $sum: `$${metric}` },
-      },
+  const groupData = await prisma.productPerformanceDaily.groupBy({
+    by: ['product_id'],
+    where: { date: { gte: since } },
+    _sum: {
+      [metric]: true
     },
-    { $sort: { total: -1 } },
-    { $limit: limit },
-    {
-      $lookup: {
-        from: "products",
-        localField: "_id",
-        foreignField: "_id",
-        as: "product",
-      },
+    orderBy: {
+      _sum: { [metric]: 'desc' }
     },
-    { $unwind: "$product" },
-    {
-      $project: {
-        _id: 0,
-        product_id: "$_id",
-        name: "$product.name",
-        slug: "$product.slug",
-        total: 1,
-      },
-    },
-  ]);
+    take: limit
+  });
+
+  const results = [];
+  for (const g of groupData) {
+    const p = await prisma.product.findUnique({ where: { id: g.product_id } });
+    if (p) {
+      results.push({
+        product_id: p.id,
+        name: p.name,
+        slug: p.slug,
+        total: g._sum[metric] || 0
+      });
+    }
+  }
+
+  results.sort((a, b) => b.total - a.total);
+  return results;
 };

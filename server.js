@@ -1,5 +1,4 @@
 import express from "express";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
 import morgan from "morgan";
@@ -7,6 +6,9 @@ import helmet from "helmet";
 
 // Import Redis Client and connections
 import redisClient, { connectRedis } from "./config/redis.js";
+
+// Prisma
+import prisma from "./config/prisma.js";
 
 // Import Routes
 import authRoutes from "./routes/auth.routes.js";
@@ -69,7 +71,7 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
     }
 
     // If Redis is not connected/ready, bypass cache gracefully
-    if (!redisClient.isOpen || !redisClient.isReady) {
+    if (redisClient.status !== "ready") {
       return next();
     }
 
@@ -90,7 +92,7 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
       res.send = function (body) {
         if (res.statusCode === 200) {
           redisClient
-            .setEx(
+            .setex(
               key,
               durationInSeconds,
               typeof body === "string" ? body : JSON.stringify(body)
@@ -112,14 +114,20 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
 
 // Health Check API
 app.get("/api/health", async (req, res) => {
-  const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
-  const redisStatus = redisClient.isOpen && redisClient.isReady ? "connected" : "disconnected";
+  let dbStatus = "disconnected";
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = "connected";
+  } catch (e) {
+    dbStatus = "error";
+  }
+  const redisStatus = redisClient.status === "ready" ? "connected" : "disconnected";
 
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
     services: {
-      mongodb: dbStatus,
+      postgreSQL: dbStatus,
       redis: redisStatus,
     },
   });
@@ -139,17 +147,13 @@ app.get("/api/data", cacheMiddleware(30), async (req, res) => {
 
 // Database Connections & Server Start
 const startServer = async () => {
-  // 1. Connect to MongoDB
+  // 1. Check PostgreSQL via Prisma
   try {
-    const mongoUri = process.env.MONGO_URI;
-    if (!mongoUri) {
-      throw new Error("MONGO_URI is not defined in env variables");
-    }
-    console.log("[MongoDB] Connecting...");
-    await mongoose.connect(mongoUri);
-    console.log("[MongoDB] Connected successfully.");
+    console.log("[PostgreSQL] Connecting...");
+    await prisma.$connect();
+    console.log("[PostgreSQL] Connected successfully.");
   } catch (err) {
-    console.error("[MongoDB] Connection failure:", err.message || err);
+    console.error("[PostgreSQL] Connection failure:", err.message || err);
     process.exit(1);
   }
 

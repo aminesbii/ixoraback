@@ -1,11 +1,21 @@
 import express from "express";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
 import morgan from "morgan";
 import helmet from "helmet";
-// Import Redis Client
+// Import Redis Client and connections
 import redisClient, { connectRedis } from "./config/redis.js";
+// Prisma
+import prisma from "./config/prisma.js";
+// Import Routes
+import authRoutes from "./routes/auth.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
+import productRoutes from "./routes/product.routes.js";
+import cartRoutes from "./routes/cart.routes.js";
+import orderRoutes from "./routes/order.routes.js";
+import addressRoutes from "./routes/address.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 // Load Environment Variables
 dotenv.config({ path: path.resolve(process.cwd(), "config/.env") });
 const app = express();
@@ -31,6 +41,15 @@ app.use((req, res, next) => {
 });
 // Serve Static Uploads
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// API Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/addresses", addressRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/analytics", analyticsRoutes);
 /**
  * Cache Middleware using Redis
  * @param {number} durationInSeconds - Cache duration
@@ -41,7 +60,7 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
             return next();
         }
         // If Redis is not connected/ready, bypass cache gracefully
-        if (!redisClient.isOpen || !redisClient.isReady) {
+        if (redisClient.status !== "ready") {
             return next();
         }
         const key = `express-cache:${req.originalUrl || req.url}`;
@@ -58,7 +77,7 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
             res.send = function (body) {
                 if (res.statusCode === 200) {
                     redisClient
-                        .setEx(key, durationInSeconds, typeof body === "string" ? body : JSON.stringify(body))
+                        .setex(key, durationInSeconds, typeof body === "string" ? body : JSON.stringify(body))
                         .catch((err) => console.warn(`[Redis] Error setting key ${key}: ${err.message || err}`));
                 }
                 return originalSend.call(this, body);
@@ -73,13 +92,20 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
 };
 // Health Check API
 app.get("/api/health", async (req, res) => {
-    const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
-    const redisStatus = redisClient.isOpen && redisClient.isReady ? "connected" : "disconnected";
+    let dbStatus = "disconnected";
+    try {
+        await prisma.$queryRaw `SELECT 1`;
+        dbStatus = "connected";
+    }
+    catch (e) {
+        dbStatus = "error";
+    }
+    const redisStatus = redisClient.status === "ready" ? "connected" : "disconnected";
     res.json({
         status: "ok",
         timestamp: new Date().toISOString(),
         services: {
-            mongodb: dbStatus,
+            postgreSQL: dbStatus,
             redis: redisStatus,
         },
     });
@@ -96,18 +122,14 @@ app.get("/api/data", cacheMiddleware(30), async (req, res) => {
 });
 // Database Connections & Server Start
 const startServer = async () => {
-    // 1. Connect to MongoDB
+    // 1. Check PostgreSQL via Prisma
     try {
-        const mongoUri = process.env.MONGO_URI;
-        if (!mongoUri) {
-            throw new Error("MONGO_URI is not defined in env variables");
-        }
-        console.log("[MongoDB] Connecting...");
-        await mongoose.connect(mongoUri);
-        console.log("[MongoDB] Connected successfully.");
+        console.log("[PostgreSQL] Connecting...");
+        await prisma.$connect();
+        console.log("[PostgreSQL] Connected successfully.");
     }
     catch (err) {
-        console.error("[MongoDB] Connection failure:", err.message || err);
+        console.error("[PostgreSQL] Connection failure:", err.message || err);
         process.exit(1);
     }
     // 2. Connect to Redis (graceful connection)

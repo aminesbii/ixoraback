@@ -1,22 +1,31 @@
-import Address from "../models/address.model.js";
+import prisma from "../config/prisma.js";
 
 // ─── GET USER'S SAVED ADDRESSES ─────────────────────────────────────────────
-export const getUserAddresses = (userId) =>
-  Address.find({ user_id: userId, order_id: null }).sort({ createdAt: -1 }).lean();
+export const getUserAddresses = async (userId) =>
+  prisma.address.findMany({ where: { user_id: userId, order_id: null }, orderBy: { createdAt: 'desc' } });
 
 // ─── GET SINGLE ADDRESS ─────────────────────────────────────────────────────
-export const getAddressById = (id) => Address.findById(id).lean();
+export const getAddressById = async (id) => prisma.address.findUnique({ where: { id } });
 
 // ─── CREATE ──────────────────────────────────────────────────────────────────
-export const createAddress = (data) => Address.create(data);
+export const createAddress = async (data) => {
+  if (data.type) data.type = data.type.toUpperCase();
+  return prisma.address.create({ data });
+}
 
 // ─── UPDATE ──────────────────────────────────────────────────────────────────
-export const updateAddress = (id, data) =>
-  Address.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+export const updateAddress = async (id, data) => {
+  try {
+    if (data.type) data.type = data.type.toUpperCase();
+    return await prisma.address.update({ where: { id }, data });
+  } catch (e) { return null; }
+}
 
 // ─── DELETE ──────────────────────────────────────────────────────────────────
-export const deleteAddress = (id) => Address.findByIdAndDelete(id);
+export const deleteAddress = async (id) => {
+  try { return await prisma.address.delete({ where: { id } }); } catch (e) { return null; }
+}
 
 // ─── GET ADDRESSES FOR AN ORDER ─────────────────────────────────────────────
-export const getOrderAddresses = (orderId) =>
-  Address.find({ order_id: orderId }).lean();
+export const getOrderAddresses = async (orderId) =>
+  prisma.address.findMany({ where: { order_id: orderId } });
