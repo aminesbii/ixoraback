@@ -2,8 +2,6 @@ import sharp from "sharp";
 import fs from "fs";
 import path from "path";
 
-const MIN_W = Number(process.env.IMAGE_MIN_WIDTH ?? 1280);
-const MIN_H = Number(process.env.IMAGE_MIN_HEIGHT ?? 720);
 const MAX_W = Number(process.env.IMAGE_MAX_WIDTH ?? 1920);
 const MAX_H = Number(process.env.IMAGE_MAX_HEIGHT ?? 1080);
 const MAX_KB = Number(process.env.IMAGE_MAX_KB ?? 400); // target cap in KB
@@ -16,15 +14,7 @@ async function processFileAtPath(filePath) {
   const meta = await sharp(input).metadata();
 
   let resizeOptions = null;
-  if ((meta.width ?? 0) < MIN_W || (meta.height ?? 0) < MIN_H) {
-    // Too small → upscale to at least 1280x720 using cover to guarantee both dims >= min
-    resizeOptions = {
-      width: MIN_W,
-      height: MIN_H,
-      fit: "cover",
-      withoutEnlargement: false,
-    };
-  } else if ((meta.width ?? 0) > MAX_W || (meta.height ?? 0) > MAX_H) {
+  if ((meta.width ?? 0) > MAX_W || (meta.height ?? 0) > MAX_H) {
     // Too large → downscale inside 1920x1080
     resizeOptions = {
       width: MAX_W,
@@ -63,16 +53,17 @@ function replaceExt(filePath, newExt) {
 export const processSingleImage = () => async (req, res, next) => {
   try {
     if (!req.file || !req.file.path) return next();
-    // Skip processing for non-image uploads (e.g. video files)
-    if (req.file.mimetype && !req.file.mimetype.startsWith("image/"))
-      return next();
+    const mime = req.file.mimetype || '';
+    if (!mime.startsWith("image/")) return next();
+    // Skip Sharp for SVGs – Sharp does not support SVG
+    if (mime === "image/svg+xml") return next();
     const originalPath = req.file.path;
     const { buffer, format } = await processFileAtPath(originalPath);
     const newPath = replaceExt(originalPath, `.${format}`);
     await fs.promises.writeFile(newPath, buffer);
     // Remove original file if path/ext changed
     if (newPath !== originalPath && fs.existsSync(originalPath)) {
-      await fs.promises.unlink(originalPath).catch(() => {});
+      await fs.promises.unlink(originalPath).catch(() => { });
     }
     // Update req.file to point to processed file
     req.file.path = newPath;
@@ -87,36 +78,36 @@ export const processSingleImage = () => async (req, res, next) => {
 
 export const processImageFields =
   (fieldNames = []) =>
-  async (req, res, next) => {
-    try {
-      if (!req.files) return next();
-      for (const field of fieldNames) {
-        const arr = req.files[field];
-        if (Array.isArray(arr)) {
-          for (const file of arr) {
-            if (file && file.path) {
-              // skip non-image files (videos etc.)
-              if (file.mimetype && !file.mimetype.startsWith("image/"))
-                continue;
-              const { buffer, format } = await processFileAtPath(file.path);
-              const newPath = replaceExt(file.path, `.${format}`);
-              await fs.promises.writeFile(newPath, buffer);
-              if (newPath !== file.path && fs.existsSync(file.path)) {
-                await fs.promises.unlink(file.path).catch(() => {});
+    async (req, res, next) => {
+      try {
+        if (!req.files) return next();
+        for (const field of fieldNames) {
+          const arr = req.files[field];
+          if (Array.isArray(arr)) {
+            for (const file of arr) {
+              if (file && file.path) {
+                const fmime = file.mimetype || '';
+                if (!fmime.startsWith("image/")) continue;
+                if (fmime === "image/svg+xml") continue;
+                const { buffer, format } = await processFileAtPath(file.path);
+                const newPath = replaceExt(file.path, `.${format}`);
+                await fs.promises.writeFile(newPath, buffer);
+                if (newPath !== file.path && fs.existsSync(file.path)) {
+                  await fs.promises.unlink(file.path).catch(() => { });
+                }
+                file.path = newPath;
+                file.size = buffer.length;
+                file.mimetype = `image/${format}`;
+                file.filename = path.basename(newPath);
               }
-              file.path = newPath;
-              file.size = buffer.length;
-              file.mimetype = `image/${format}`;
-              file.filename = path.basename(newPath);
             }
           }
         }
+        next();
+      } catch (err) {
+        next(err);
       }
-      next();
-    } catch (err) {
-      next(err);
-    }
-  };
+    };
 
 export default {
   processSingleImage,

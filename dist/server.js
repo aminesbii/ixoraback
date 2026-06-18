@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import morgan from "morgan";
 import helmet from "helmet";
 // Import Redis Client and connections
@@ -39,8 +40,10 @@ app.use((req, res, next) => {
     }
     next();
 });
-// Serve Static Uploads
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// Serve uploaded images (Angular proxy forwards /api correctly)
+const uploadsDir = path.join(process.cwd(), "uploads");
+app.use("/api/uploads", express.static(uploadsDir));
+app.use("/uploads", express.static(uploadsDir));
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);

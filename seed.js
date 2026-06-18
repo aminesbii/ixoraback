@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
 import bcrypt from "bcryptjs";
@@ -88,7 +87,7 @@ const seedDatabase = async () => {
 
     // 3. Seed Categories
     console.log("[Seeder] Seeding categories...");
-    
+
     // Parent categories
     const skincareParent = await Category.create({
       name: "Skincare",

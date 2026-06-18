@@ -1,8 +1,6 @@
 import sharp from "sharp";
 import fs from "fs";
 import path from "path";
-const MIN_W = Number(process.env.IMAGE_MIN_WIDTH ?? 1280);
-const MIN_H = Number(process.env.IMAGE_MIN_HEIGHT ?? 720);
 const MAX_W = Number(process.env.IMAGE_MAX_WIDTH ?? 1920);
 const MAX_H = Number(process.env.IMAGE_MAX_HEIGHT ?? 1080);
 const MAX_KB = Number(process.env.IMAGE_MAX_KB ?? 400); // target cap in KB
@@ -13,16 +11,7 @@ async function processFileAtPath(filePath) {
     const input = await fs.promises.readFile(filePath);
     const meta = await sharp(input).metadata();
     let resizeOptions = null;
-    if ((meta.width ?? 0) < MIN_W || (meta.height ?? 0) < MIN_H) {
-        // Too small → upscale to at least 1280x720 using cover to guarantee both dims >= min
-        resizeOptions = {
-            width: MIN_W,
-            height: MIN_H,
-            fit: "cover",
-            withoutEnlargement: false,
-        };
-    }
-    else if ((meta.width ?? 0) > MAX_W || (meta.height ?? 0) > MAX_H) {
+    if ((meta.width ?? 0) > MAX_W || (meta.height ?? 0) > MAX_H) {
         // Too large → downscale inside 1920x1080
         resizeOptions = {
             width: MAX_W,
@@ -60,8 +49,11 @@ export const processSingleImage = () => async (req, res, next) => {
     try {
         if (!req.file || !req.file.path)
             return next();
-        // Skip processing for non-image uploads (e.g. video files)
-        if (req.file.mimetype && !req.file.mimetype.startsWith("image/"))
+        const mime = req.file.mimetype || '';
+        if (!mime.startsWith("image/"))
+            return next();
+        // Skip Sharp for SVGs – Sharp does not support SVG
+        if (mime === "image/svg+xml")
             return next();
         const originalPath = req.file.path;
         const { buffer, format } = await processFileAtPath(originalPath);
@@ -91,8 +83,10 @@ export const processImageFields = (fieldNames = []) => async (req, res, next) =>
             if (Array.isArray(arr)) {
                 for (const file of arr) {
                     if (file && file.path) {
-                        // skip non-image files (videos etc.)
-                        if (file.mimetype && !file.mimetype.startsWith("image/"))
+                        const fmime = file.mimetype || '';
+                        if (!fmime.startsWith("image/"))
+                            continue;
+                        if (fmime === "image/svg+xml")
                             continue;
                         const { buffer, format } = await processFileAtPath(file.path);
                         const newPath = replaceExt(file.path, `.${format}`);

@@ -1,4 +1,15 @@
 import prisma from "../config/prisma.js";
+import fs from "fs";
+import path from "path";
+
+function deleteImageFile(imageUrl) {
+  if (!imageUrl) return;
+  const filename = path.basename(imageUrl);
+  const filePath = path.join(process.cwd(), "uploads", filename);
+  if (fs.existsSync(filePath)) {
+    fs.promises.unlink(filePath).catch(() => {});
+  }
+}
 
 // ─── LIST PRODUCTS (paginated, filterable) ───────────────────────────────────
 export const getProducts = async ({
@@ -106,9 +117,12 @@ export const updateProduct = async (id, data) => {
 // ─── DELETE (cascade images & variants) ──────────────────────────────────────
 export const deleteProduct = async (id) => {
   try {
+    const images = await prisma.productImage.findMany({ where: { product_id: id } });
     await prisma.productImage.deleteMany({ where: { product_id: id } });
     await prisma.productVariant.deleteMany({ where: { product_id: id } });
-    return await prisma.product.delete({ where: { id } });
+    const result = await prisma.product.delete({ where: { id } });
+    images.forEach(img => deleteImageFile(img.image_url));
+    return result;
   } catch (e) { return null; }
 };
 
@@ -126,7 +140,13 @@ export const updateProductImage = async (id, data) => {
 };
 
 export const deleteProductImage = async (id) => {
-  try { return await prisma.productImage.delete({ where: { id } }); } catch (e) { return null; }
+  try {
+    const image = await prisma.productImage.findUnique({ where: { id } });
+    if (!image) return null;
+    await prisma.productImage.delete({ where: { id } });
+    deleteImageFile(image.image_url);
+    return image;
+  } catch (e) { return null; }
 };
 
 export const setMainImage = async (productId, imageId) => {

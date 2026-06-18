@@ -103,7 +103,7 @@ export const addImage = async (req, res) => {
     // If multer uploaded a file, build the URL from it
     let imageUrl = req.body.image_url;
     if (req.file) {
-      imageUrl = `/uploads/${req.file.filename}`;
+      imageUrl = `/api/uploads/${req.file.filename}`;
     }
     if (!imageUrl) {
       return res.status(400).json({ message: "image_url or file upload is required." });

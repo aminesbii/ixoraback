@@ -33,7 +33,7 @@ export const verifyToken = (req, res, next) => {
  * Must be used AFTER `verifyToken`.
  */
 export const requireAdmin = (req, res, next) => {
-  if (req.user?.role !== "admin") {
+  if ((req.user?.role || '').toLowerCase() !== "admin") {
     return res.status(403).json({ message: "Admin access required." });
   }
   next();
@@ -47,9 +47,9 @@ export const requireAdmin = (req, res, next) => {
 export const signToken = (user) => {
   return jwt.sign(
     {
-      userId: user._id,
+      userId: user.id || user._id,
       email: user.email,
-      role: user.role,
+      role: (user.role || '').toLowerCase(),
       status: user.status,
     },
     JWT_SECRET,
