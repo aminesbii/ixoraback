@@ -50,6 +50,9 @@ app.use((req, res, next) => {
 
 // Serve uploaded images via API endpoint (works through Angular /api proxy)
 const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Re-usable handler for serving uploaded images
 const serveUpload = (req, res) => {
@@ -190,4 +193,5 @@ const startServer = async () => {
   });
 };
 
+// Start the application server
 startServer();

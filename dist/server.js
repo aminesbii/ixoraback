@@ -40,10 +40,32 @@ app.use((req, res, next) => {
     }
     next();
 });
-// Serve uploaded images (Angular proxy forwards /api correctly)
+// Serve uploaded images via API endpoint (works through Angular /api proxy)
 const uploadsDir = path.join(process.cwd(), "uploads");
-app.use("/api/uploads", express.static(uploadsDir));
-app.use("/uploads", express.static(uploadsDir));
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+// Re-usable handler for serving uploaded images
+const serveUpload = (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(uploadsDir, filename);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found" });
+    }
+    const ext = path.extname(filename).toLowerCase();
+    const mime = ext === '.webp' ? 'image/webp' :
+        ext === '.png' ? 'image/png' :
+            ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+                ext === '.gif' ? 'image/gif' :
+                    ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.sendFile(filePath);
+};
+// Primary endpoint (works through Angular /api proxy)
+app.get("/api/uploads/:filename", serveUpload);
+// Legacy /uploads endpoint (direct Express access)
+app.get("/uploads/:filename", serveUpload);
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);

@@ -20,6 +20,8 @@ router.post("/:productId/images", verifyToken, requireAdmin, upload.single("imag
 router.put("/:productId/images/:imageId", verifyToken, requireAdmin, ctrl.updateImage);
 router.delete("/:productId/images/:imageId", verifyToken, requireAdmin, ctrl.deleteImage);
 router.patch("/:productId/images/:imageId/main", verifyToken, requireAdmin, ctrl.setMainImage);
+router.post("/:productId/images/featured1", verifyToken, requireAdmin, upload.single("image"), processSingleImage(), ctrl.addFeatured1Image);
+router.post("/:productId/images/featured2", verifyToken, requireAdmin, upload.single("image"), processSingleImage(), ctrl.addFeatured2Image);
 // ─── Product Variants ───────────────────────────────────────────────────────
 router.get("/:productId/variants", limitReadsOnly, ctrl.listVariants);
 router.post("/:productId/variants", verifyToken, requireAdmin, limitWritesOnly, ctrl.addVariant);

@@ -51,6 +51,24 @@ router.patch(
   ctrl.setMainImage
 );
 
+router.post(
+  "/:productId/images/featured1",
+  verifyToken,
+  requireAdmin,
+  upload.single("image"),
+  processSingleImage(),
+  ctrl.addFeatured1Image
+);
+
+router.post(
+  "/:productId/images/featured2",
+  verifyToken,
+  requireAdmin,
+  upload.single("image"),
+  processSingleImage(),
+  ctrl.addFeatured2Image
+);
+
 // ─── Product Variants ───────────────────────────────────────────────────────
 router.get("/:productId/variants", limitReadsOnly, ctrl.listVariants);
 

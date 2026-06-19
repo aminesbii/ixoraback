@@ -156,6 +156,53 @@ export const setMainImage = async (req, res) => {
   }
 };
 
+export const addFeatured1Image = async (req, res) => {
+  try {
+    let imageUrl = req.body.image_url;
+    if (req.file) {
+      imageUrl = `/api/uploads/${req.file.filename}`;
+    }
+    if (!imageUrl) {
+      return res.status(400).json({ message: "image_url or file upload is required." });
+    }
+
+    const image = await productService.setFeatured1Image(req.params.productId, {
+      product_id: req.params.productId,
+      image_url: imageUrl,
+      alt_text: req.body.alt_text || null,
+      sort_order: 0,
+      is_main: true,
+    });
+    res.status(201).json(image);
+  } catch (err) {
+    console.error("[ProductImage] AddFeatured1 error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+export const addFeatured2Image = async (req, res) => {
+  try {
+    let imageUrl = req.body.image_url;
+    if (req.file) {
+      imageUrl = `/api/uploads/${req.file.filename}`;
+    }
+    if (!imageUrl) {
+      return res.status(400).json({ message: "image_url or file upload is required." });
+    }
+
+    const image = await productService.setFeatured2Image(req.params.productId, {
+      product_id: req.params.productId,
+      image_url: imageUrl,
+      alt_text: req.body.alt_text || null,
+      sort_order: 1,
+    });
+    res.status(201).json(image);
+  } catch (err) {
+    console.error("[ProductImage] AddFeatured2 error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Product Variants
 // ═══════════════════════════════════════════════════════════════════════════════

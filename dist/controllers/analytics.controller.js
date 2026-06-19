@@ -52,6 +52,18 @@ export const triggerAggregation = async (req, res) => {
         res.status(500).json({ message: "Internal server error." });
     }
 };
+// ─── GET PUBLIC ANALYTICS (public home page) ───────────────────────────────
+export const getPublicAnalytics = async (req, res) => {
+    try {
+        const { days } = req.query;
+        const data = await analyticsService.getPublicAnalytics(Number(days) || 30);
+        res.json(data);
+    }
+    catch (err) {
+        console.error("[Analytics] PublicAnalytics error:", err);
+        res.status(500).json({ message: "Internal server error." });
+    }
+};
 // ─── TOP PRODUCTS (admin dashboard) ─────────────────────────────────────────
 export const topProducts = async (req, res) => {
     try {

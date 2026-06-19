@@ -154,6 +154,16 @@ export const setMainImage = async (productId, imageId) => {
   return prisma.productImage.update({ where: { id: imageId }, data: { is_main: true } });
 };
 
+export const setFeatured1Image = async (productId, data) => {
+  await prisma.productImage.updateMany({ where: { product_id: productId }, data: { featured1: false } });
+  return prisma.productImage.create({ data: { ...data, featured1: true } });
+};
+
+export const setFeatured2Image = async (productId, data) => {
+  await prisma.productImage.updateMany({ where: { product_id: productId }, data: { featured2: false } });
+  return prisma.productImage.create({ data: { ...data, featured2: true } });
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Product Variants
 // ═══════════════════════════════════════════════════════════════════════════════
