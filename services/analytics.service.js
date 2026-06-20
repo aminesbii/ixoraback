@@ -1,8 +1,8 @@
 import prisma from "../config/prisma.js";
 
 // ─── TRACK EVENT ─────────────────────────────────────────────────────────────
-export const trackEvent = ({ productId, userId, sessionToken, eventType }) =>
-  prisma.productEvent.create({
+export const trackEvent = async ({ productId, userId, sessionToken, eventType }) => {
+  const event = await prisma.productEvent.create({
     data: {
       product_id: productId,
       user_id: userId || null,
@@ -10,6 +10,16 @@ export const trackEvent = ({ productId, userId, sessionToken, eventType }) =>
       event_type: eventType,
     }
   });
+
+  if (eventType?.toUpperCase() === 'CLICK') {
+    await prisma.product.update({
+      where: { id: productId },
+      data: { clicks: { increment: 1 } }
+    });
+  }
+
+  return event;
+};
 
 // ─── GET DAILY PERFORMANCE (date range) ─────────────────────────────────────
 export const getDailyPerformance = async ({ productId, startDate, endDate } = {}) => {
@@ -169,6 +179,25 @@ export const getPublicAnalytics = async (days = 30) => {
     topProducts,
     dailyMetrics
   };
+};
+
+// ─── PRODUCT CLICKS (all products, sorted by lifetime clicks) ──────────────
+export const getProductClicks = async () => {
+  return prisma.product.findMany({
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      brand_name: true,
+      clicks: true,
+      images: {
+        where: { is_main: true },
+        take: 1,
+        select: { image_url: true }
+      }
+    },
+    orderBy: { clicks: 'desc' }
+  });
 };
 
 // ─── TOP PRODUCTS (dashboard) ───────────────────────────────────────────────

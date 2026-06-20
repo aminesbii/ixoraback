@@ -13,6 +13,9 @@ router.get("/", limitReadsOnly, ctrl.list);
 router.get("/slug/:slug", limitReadsOnly, ctrl.getBySlug);
 router.get("/:id", limitReadsOnly, ctrl.getById);
 
+// Clicks counter
+router.get("/:id/clicks", limitReadsOnly, ctrl.getClicks);
+
 // Admin
 router.post("/", verifyToken, requireAdmin, limitWritesOnly, ctrl.create);
 router.put("/:id", verifyToken, requireAdmin, limitWritesOnly, ctrl.update);

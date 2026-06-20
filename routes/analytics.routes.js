@@ -21,4 +21,7 @@ router.post("/performance/aggregate", verifyToken, requireAdmin, limitWritesOnly
 // Admin — top products dashboard
 router.get("/performance/top", verifyToken, requireAdmin, limitReadsOnly, ctrl.topProducts);
 
+// Admin — all product clicks (lifetime)
+router.get("/product-clicks", verifyToken, requireAdmin, limitReadsOnly, ctrl.productClicks);
+
 export default router;
