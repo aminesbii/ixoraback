@@ -100,17 +100,6 @@ export const getProductBySlug = async (slug) => {
   } catch (e) { return null; }
 };
 
-// ─── GET CLICKS ──────────────────────────────────────────────────────────────
-export const getProductClicks = async (id) => {
-  try {
-    const product = await prisma.product.findUnique({
-      where: { id },
-      select: { id: true, name: true, clicks: true }
-    });
-    return product;
-  } catch (e) { return null; }
-};
-
 // ─── CREATE ──────────────────────────────────────────────────────────────────
 export const createProduct = (data) => {
   if (data.status) data.status = data.status.toUpperCase();

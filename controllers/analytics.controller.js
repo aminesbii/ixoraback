@@ -68,13 +68,17 @@ export const getPublicAnalytics = async (req, res) => {
   }
 };
 
-// ─── PRODUCT CLICKS (admin) ────────────────────────────────────────────────
-export const productClicks = async (req, res) => {
+// ─── DAILY PRODUCT CLICKS (admin) ──────────────────────────────────────────
+export const dailyProductClicks = async (req, res) => {
   try {
-    const data = await analyticsService.getProductClicks();
+    const { start_date, end_date } = req.query;
+    const data = await analyticsService.getDailyProductClicks({
+      startDate: start_date,
+      endDate: end_date,
+    });
     res.json(data);
   } catch (err) {
-    console.error("[Analytics] ProductClicks error:", err);
+    console.error("[Analytics] DailyProductClicks error:", err);
     res.status(500).json({ message: "Internal server error." });
   }
 };
@@ -94,3 +98,4 @@ export const topProducts = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+

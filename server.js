@@ -34,6 +34,57 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Helper to map 'id' to '_id' recursively for outgoing responses
+function addUnderscoreId(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(addUnderscoreId);
+  }
+  if (typeof obj === "object" && !(obj instanceof Date)) {
+    if (obj.id && typeof obj.id === "string" && !obj._id) {
+      obj._id = obj.id;
+    }
+    for (const key of Object.keys(obj)) {
+      obj[key] = addUnderscoreId(obj[key]);
+    }
+  }
+  return obj;
+}
+
+// Helper to strip/normalize '_id' recursively for incoming requests
+function cleanUnderscoreId(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUnderscoreId);
+  }
+  if (typeof obj === "object" && !(obj instanceof Date)) {
+    if (obj._id && typeof obj._id === "string") {
+      if (!obj.id) {
+        obj.id = obj._id;
+      }
+      delete obj._id;
+    }
+    for (const key of Object.keys(obj)) {
+      obj[key] = cleanUnderscoreId(obj[key]);
+    }
+  }
+  return obj;
+}
+
+// Mismatch normalization middleware for MongoDB _id and Prisma id
+app.use((req, res, next) => {
+  if (req.body) req.body = cleanUnderscoreId(req.body);
+  if (req.query) req.query = cleanUnderscoreId(req.query);
+
+  const originalJson = res.json;
+  res.json = function (body) {
+    body = addUnderscoreId(body);
+    return originalJson.call(this, body);
+  };
+  next();
+});
+
+
 // Custom CORS Middleware based on ALLOWED_ORIGINS
 app.use((req, res, next) => {
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",");
@@ -196,3 +247,5 @@ const startServer = async () => {
 
 // Start the application server
 startServer();
+// Touch comment to trigger nodemon restart
+
