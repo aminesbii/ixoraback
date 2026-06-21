@@ -8,7 +8,7 @@ export const getCart = async (req, res) => {
             return res.status(400).json({ message: "Login or provide x-session-token header." });
         }
         const cart = await cartService.getOrCreateCart({ userId, sessionToken });
-        const full = await cartService.getCartWithItems(cart._id);
+        const full = await cartService.getCartWithItems(cart.id);
         res.json(full);
     }
     catch (err) {
@@ -27,12 +27,12 @@ export const addItem = async (req, res) => {
         }
         const cart = await cartService.getOrCreateCart({ userId, sessionToken });
         await cartService.addToCart({
-            cartId: cart._id,
+            cartId: cart.id,
             productId: product_id,
             variantId: variant_id || null,
             quantity: Number(quantity) || 1,
         });
-        const full = await cartService.getCartWithItems(cart._id);
+        const full = await cartService.getCartWithItems(cart.id);
         res.json(full);
     }
     catch (err) {
@@ -49,7 +49,7 @@ export const updateItem = async (req, res) => {
         const userId = req.user?.userId || null;
         const sessionToken = req.headers["x-session-token"] || null;
         const cart = await cartService.getOrCreateCart({ userId, sessionToken });
-        const full = await cartService.getCartWithItems(cart._id);
+        const full = await cartService.getCartWithItems(cart.id);
         res.json(full);
     }
     catch (err) {
@@ -64,7 +64,7 @@ export const removeItem = async (req, res) => {
         const userId = req.user?.userId || null;
         const sessionToken = req.headers["x-session-token"] || null;
         const cart = await cartService.getOrCreateCart({ userId, sessionToken });
-        const full = await cartService.getCartWithItems(cart._id);
+        const full = await cartService.getCartWithItems(cart.id);
         res.json(full);
     }
     catch (err) {
@@ -78,7 +78,7 @@ export const clear = async (req, res) => {
         const userId = req.user?.userId || null;
         const sessionToken = req.headers["x-session-token"] || null;
         const cart = await cartService.getOrCreateCart({ userId, sessionToken });
-        await cartService.clearCart(cart._id);
+        await cartService.clearCart(cart.id);
         res.json({ message: "Cart cleared." });
     }
     catch (err) {

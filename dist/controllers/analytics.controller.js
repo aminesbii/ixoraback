@@ -12,7 +12,7 @@ export const trackEvent = async (req, res) => {
             productId: product_id,
             userId,
             sessionToken,
-            eventType: event_type,
+            eventType: event_type.toUpperCase(),
         });
         res.status(201).json({ message: "Event tracked." });
     }
@@ -61,6 +61,21 @@ export const getPublicAnalytics = async (req, res) => {
     }
     catch (err) {
         console.error("[Analytics] PublicAnalytics error:", err);
+        res.status(500).json({ message: "Internal server error." });
+    }
+};
+// ─── DAILY PRODUCT CLICKS (admin) ──────────────────────────────────────────
+export const dailyProductClicks = async (req, res) => {
+    try {
+        const { start_date, end_date } = req.query;
+        const data = await analyticsService.getDailyProductClicks({
+            startDate: start_date,
+            endDate: end_date,
+        });
+        res.json(data);
+    }
+    catch (err) {
+        console.error("[Analytics] DailyProductClicks error:", err);
         res.status(500).json({ message: "Internal server error." });
     }
 };

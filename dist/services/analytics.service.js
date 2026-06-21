@@ -1,13 +1,39 @@
 import prisma from "../config/prisma.js";
 // ─── TRACK EVENT ─────────────────────────────────────────────────────────────
-export const trackEvent = ({ productId, userId, sessionToken, eventType }) => prisma.productEvent.create({
-    data: {
-        product_id: productId,
-        user_id: userId || null,
-        session_token: sessionToken || null,
-        event_type: eventType,
+export const trackEvent = async ({ productId, userId, sessionToken, eventType }) => {
+    const event = await prisma.productEvent.create({
+        data: {
+            product_id: productId,
+            user_id: userId || null,
+            session_token: sessionToken || null,
+            event_type: eventType,
+        }
+    });
+    if (eventType?.toUpperCase() === 'CLICK') {
+        const now = new Date();
+        const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        // Increment lifetime clicks on Product
+        await prisma.product.update({
+            where: { id: productId },
+            data: { clicks: { increment: 1 } }
+        }).catch(err => console.error("[Analytics] Failed to increment Product clicks:", err));
+        // Increment/upsert daily clicks in ProductPerformanceDaily
+        await prisma.productPerformanceDaily.upsert({
+            where: {
+                product_id_date: { product_id: productId, date: todayUTC }
+            },
+            create: {
+                product_id: productId,
+                date: todayUTC,
+                click_count: 1,
+            },
+            update: {
+                click_count: { increment: 1 },
+            }
+        }).catch(err => console.error("[Analytics] Failed to upsert daily clicks:", err));
     }
-});
+    return event;
+};
 // ─── GET DAILY PERFORMANCE (date range) ─────────────────────────────────────
 export const getDailyPerformance = async ({ productId, startDate, endDate } = {}) => {
     const where = {};
@@ -151,6 +177,55 @@ export const getPublicAnalytics = async (days = 30) => {
         topProducts,
         dailyMetrics
     };
+};
+// ─── DAILY PRODUCT CLICKS (aggregated per product within date range) ───────
+export const getDailyProductClicks = async ({ startDate, endDate } = {}) => {
+    const where = {};
+    if (startDate || endDate) {
+        where.date = {};
+        if (startDate)
+            where.date.gte = new Date(startDate);
+        if (endDate)
+            where.date.lte = new Date(endDate);
+    }
+    const groupData = await prisma.productPerformanceDaily.groupBy({
+        by: ['product_id'],
+        where,
+        _sum: { click_count: true },
+        orderBy: { _sum: { click_count: 'desc' } },
+    });
+    if (groupData.length === 0)
+        return [];
+    const productIds = groupData.map(g => g.product_id);
+    const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: {
+            id: true,
+            name: true,
+            slug: true,
+            brand_name: true,
+            images: { where: { is_main: true }, take: 1, select: { image_url: true } }
+        }
+    });
+    const productMap = {};
+    for (const p of products) {
+        productMap[p.id] = p;
+    }
+    const results = [];
+    for (const g of groupData) {
+        const p = productMap[g.product_id];
+        if (p) {
+            results.push({
+                product_id: p.id,
+                name: p.name,
+                slug: p.slug,
+                brand_name: p.brand_name,
+                image_url: p.images?.[0]?.image_url || '',
+                total_clicks: g._sum.click_count || 0,
+            });
+        }
+    }
+    return results;
 };
 // ─── TOP PRODUCTS (dashboard) ───────────────────────────────────────────────
 export const getTopProducts = async ({ metric = "purchase_count", limit = 10, days = 30 } = {}) => {

@@ -14,4 +14,6 @@ router.get("/performance/daily", verifyToken, requireAdmin, limitReadsOnly, ctrl
 router.post("/performance/aggregate", verifyToken, requireAdmin, limitWritesOnly, ctrl.triggerAggregation);
 // Admin — top products dashboard
 router.get("/performance/top", verifyToken, requireAdmin, limitReadsOnly, ctrl.topProducts);
+// Admin — daily product clicks (from ProductPerformanceDaily)
+router.get("/performance/daily-clicks", verifyToken, requireAdmin, limitReadsOnly, ctrl.dailyProductClicks);
 export default router;
