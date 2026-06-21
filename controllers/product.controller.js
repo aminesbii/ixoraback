@@ -79,6 +79,12 @@ export const remove = async (req, res) => {
     if (!product) return res.status(404).json({ message: "Product not found." });
     res.json({ message: "Product and associated images/variants deleted." });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
+    if (err.code === 'P2025') {
+      return res.status(404).json({ message: "Product not found." });
+    }
     console.error("[Product] Delete error:", err);
     res.status(500).json({ message: "Internal server error." });
   }

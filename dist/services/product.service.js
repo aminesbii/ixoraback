@@ -22,7 +22,6 @@ export const getProducts = async ({ page = 1, limit = 20, status, category_id, i
     if (search) {
         where.OR = [
             { name: { contains: search, mode: 'insensitive' } },
-            { brand_name: { contains: search, mode: 'insensitive' } },
             { short_description: { contains: search, mode: 'insensitive' } },
         ];
     }

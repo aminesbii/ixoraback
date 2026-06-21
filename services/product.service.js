@@ -2,10 +2,12 @@ import prisma from "../config/prisma.js";
 import fs from "fs";
 import path from "path";
 
+const uploadsDir = path.join(process.cwd(), "uploads");
+
 function deleteImageFile(imageUrl) {
   if (!imageUrl) return;
   const filename = path.basename(imageUrl);
-  const filePath = path.join(process.cwd(), "uploads", filename);
+  const filePath = path.join(uploadsDir, filename);
   if (fs.existsSync(filePath)) {
     fs.promises.unlink(filePath).catch(() => {});
   }
@@ -29,7 +31,6 @@ export const getProducts = async ({
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
-      { brand_name: { contains: search, mode: 'insensitive' } },
       { short_description: { contains: search, mode: 'insensitive' } },
     ];
   }
@@ -116,14 +117,21 @@ export const updateProduct = async (id, data) => {
 
 // ─── DELETE (cascade images & variants) ──────────────────────────────────────
 export const deleteProduct = async (id) => {
-  try {
-    const images = await prisma.productImage.findMany({ where: { product_id: id } });
-    await prisma.productImage.deleteMany({ where: { product_id: id } });
-    await prisma.productVariant.deleteMany({ where: { product_id: id } });
-    const result = await prisma.product.delete({ where: { id } });
-    images.forEach(img => deleteImageFile(img.image_url));
-    return result;
-  } catch (e) { return null; }
+  const orderItems = await prisma.orderItem.findMany({ where: { product_id: id }, take: 1 });
+  if (orderItems.length > 0) {
+    const err = new Error("Product has order history and cannot be deleted. Archive it instead.");
+    err.statusCode = 409;
+    throw err;
+  }
+  const images = await prisma.productImage.findMany({ where: { product_id: id } });
+  await prisma.cartItem.deleteMany({ where: { product_id: id } });
+  await prisma.productEvent.deleteMany({ where: { product_id: id } });
+  await prisma.productPerformanceDaily.deleteMany({ where: { product_id: id } });
+  await prisma.productImage.deleteMany({ where: { product_id: id } });
+  await prisma.productVariant.deleteMany({ where: { product_id: id } });
+  const result = await prisma.product.delete({ where: { id } });
+  images.forEach(img => deleteImageFile(img.image_url));
+  return result;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -13,7 +13,6 @@ const productSeedData = [
   {
     name: "Xora Hydrating Serum",
     slug: "xora-hydrating-serum",
-    brand_name: "Xora",
     short_description: "A lightweight serum that boosts hydration and leaves skin smoother.",
     description: "A hydrating serum infused with hyaluronic acid and panthenol for deep moisture retention.",
     status: "ACTIVE",
@@ -39,7 +38,6 @@ const productSeedData = [
   {
     name: "Vitamin C Glow Booster",
     slug: "vitamin-c-glow-booster",
-    brand_name: "Lumina",
     short_description: "Brightening serum that helps reduce dullness and uneven tone.",
     description: "A potent vitamin C serum with antioxidants to support glow and radiance.",
     status: "ACTIVE",
@@ -64,7 +62,6 @@ const productSeedData = [
   {
     name: "Ceramide Barrier Cream",
     slug: "ceramide-barrier-cream",
-    brand_name: "BioEssence",
     short_description: "Rich moisturizer that strengthens the skin barrier.",
     description: "A creamy moisturizer that nourishes dry skin and helps lock in moisture.",
     status: "ACTIVE",
@@ -89,7 +86,6 @@ const productSeedData = [
   {
     name: "Argan Nourish Shampoo",
     slug: "argan-nourish-shampoo",
-    brand_name: "Xora",
     short_description: "Sulfate-free shampoo for soft, healthy-looking hair.",
     description: "A nourishing shampoo that cleanses gently while reinforcing hair shine and softness.",
     status: "ACTIVE",
@@ -115,7 +111,6 @@ const productSeedData = [
   {
     name: "Cold Pressed Argan Elixir",
     slug: "cold-pressed-argan-elixir",
-    brand_name: "Xora",
     short_description: "Multi-use oil that smooths hair and nourishes skin.",
     description: "A cold-pressed argan oil crafted to help tame frizz and support soft skin.",
     status: "ACTIVE",
@@ -140,7 +135,6 @@ const productSeedData = [
   {
     name: "Gentle Face Cleanser",
     slug: "gentle-face-cleanser",
-    brand_name: "PureGlow",
     short_description: "A soothing cleanser that removes impurities without drying skin.",
     description: "A gentle daily cleanser formulated to refresh the skin while preserving moisture balance.",
     status: "ACTIVE",
@@ -165,7 +159,6 @@ const productSeedData = [
   {
     name: "Retinol Night Repair Serum",
     slug: "retinol-night-repair-serum",
-    brand_name: "Xora",
     short_description: "Advanced retinol serum for nighttime skin renewal.",
     description: "A concentrated retinol serum that helps reduce fine lines and improve skin texture overnight.",
     status: "ACTIVE",
@@ -190,7 +183,6 @@ const productSeedData = [
   {
     name: "Niacinamide Brightening Toner",
     slug: "niacinamide-brightening-toner",
-    brand_name: "Lumina",
     short_description: "Pore-refining toner that evens out skin tone.",
     description: "A gentle toner infused with niacinamide and zinc to balance oil production and brighten complexion.",
     status: "ACTIVE",
@@ -215,7 +207,6 @@ const productSeedData = [
   {
     name: "Leave-In Hair Conditioner",
     slug: "leave-in-hair-conditioner",
-    brand_name: "Xora",
     short_description: "Weightless leave-in conditioner for detangling and shine.",
     description: "A nourishing leave-in conditioner that hydrates hair, reduces frizz, and adds a healthy sheen.",
     status: "ACTIVE",
@@ -240,7 +231,6 @@ const productSeedData = [
   {
     name: "Eucalyptus Body Lotion",
     slug: "eucalyptus-body-lotion",
-    brand_name: "BioEssence",
     short_description: "Cooling body lotion with eucalyptus for refreshed skin.",
     description: "A lightweight, fast-absorbing body lotion enriched with eucalyptus oil and shea butter for deep hydration.",
     status: "ACTIVE",
@@ -265,7 +255,6 @@ const productSeedData = [
   {
     name: "SPF 50 Sunscreen Fluid",
     slug: "spf-50-sunscreen-fluid",
-    brand_name: "PureGlow",
     short_description: "Lightweight sunscreen with broad-spectrum SPF 50 protection.",
     description: "A non-greasy sunscreen fluid that protects against UVA/UVB rays while keeping skin hydrated.",
     status: "ACTIVE",
@@ -290,7 +279,6 @@ const productSeedData = [
   {
     name: "Jasmine Perfume Oil",
     slug: "jasmine-perfume-oil",
-    brand_name: "Xora",
     short_description: "Concentrated jasmine perfume oil for a lasting floral scent.",
     description: "A rich, alcohol-free perfume oil crafted from jasmine blossoms for a warm and elegant fragrance.",
     status: "ACTIVE",
@@ -316,7 +304,6 @@ const productSeedData = [
   {
     name: "Beard Grooming Kit",
     slug: "beard-grooming-kit",
-    brand_name: "Xora",
     short_description: "Complete beard care set with oil, balm, and comb.",
     description: "A premium grooming kit featuring beard oil, softening balm, and a wooden comb for a well-groomed beard.",
     status: "ACTIVE",
@@ -341,7 +328,6 @@ const productSeedData = [
   {
     name: "Vitamin D3 + K2 Supplement",
     slug: "vitamin-d3-k2-supplement",
-    brand_name: "Xora Wellness",
     short_description: "Daily immunity and bone health supplement.",
     description: "A high-potency Vitamin D3 and K2 supplement to support immune function, bone density, and calcium absorption.",
     status: "ACTIVE",
@@ -460,7 +446,6 @@ async function main() {
         category_id: category.id,
         name: productData.name,
         slug: productData.slug,
-        brand_name: productData.brand_name,
         short_description: productData.short_description,
         description: productData.description,
         details: productData.details,

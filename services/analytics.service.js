@@ -150,7 +150,7 @@ export const getPublicAnalytics = async (days = 30) => {
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      select: { name: true, slug: true, brand_name: true, images: { where: { is_main: true }, take: 1, select: { image_url: true } } }
+      select: { name: true, slug: true, images: { where: { is_main: true }, take: 1, select: { image_url: true } } }
     });
 
     if (product) {
@@ -159,7 +159,6 @@ export const getPublicAnalytics = async (days = 30) => {
         product_id: productId,
         name: product.name,
         slug: product.slug,
-        brand_name: product.brand_name,
         image_url: product.images?.[0]?.image_url || '',
         clicks,
         views,
@@ -225,7 +224,6 @@ export const getDailyProductClicks = async ({ startDate, endDate } = {}) => {
       id: true,
       name: true,
       slug: true,
-      brand_name: true,
       images: { where: { is_main: true }, take: 1, select: { image_url: true } }
     }
   });
@@ -243,7 +241,6 @@ export const getDailyProductClicks = async ({ startDate, endDate } = {}) => {
         product_id: p.id,
         name: p.name,
         slug: p.slug,
-        brand_name: p.brand_name,
         image_url: p.images?.[0]?.image_url || '',
         total_clicks: g._sum.click_count || 0,
       });

@@ -56,7 +56,6 @@ model Product {
   category_id       String?  @db.Uuid
   name              String   @db.VarChar(200)
   slug              String   @unique
-  brand_name        String?  @db.VarChar(100)
   short_description String?  @db.VarChar(500)
   description       String?
   details           Json?    @default("{}")
