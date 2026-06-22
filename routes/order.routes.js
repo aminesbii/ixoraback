@@ -24,4 +24,10 @@ router.get("/", verifyToken, requireAdmin, limitReadsOnly, ctrl.listAll);
 // Admin — update order status
 router.patch("/:id/status", verifyToken, requireAdmin, limitWritesOnly, ctrl.updateStatus);
 
+// Admin — update order details
+router.put("/:id", verifyToken, requireAdmin, limitWritesOnly, ctrl.update);
+
+// Admin — delete order
+router.delete("/:id", verifyToken, requireAdmin, limitWritesOnly, ctrl.remove);
+
 export default router;

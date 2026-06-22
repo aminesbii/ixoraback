@@ -142,3 +142,31 @@ export const updateStatus = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
+// ─── DELETE ORDER (admin) ──────────────────────────────────────────────────
+export const remove = async (req, res) => {
+  try {
+    const ok = await orderService.deleteOrder(req.params.id);
+    if (!ok) return res.status(404).json({ message: "Order not found." });
+    res.json({ message: "Order deleted." });
+  } catch (err) {
+    console.error("[Order] Delete error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// ─── UPDATE ORDER DETAILS (admin) ──────────────────────────────────────────
+export const update = async (req, res) => {
+  try {
+    const { customer_name, customer_email, customer_phone, status, shipping_fee, discount_total, tax_total } = req.body;
+
+    const order = await orderService.updateOrder(req.params.id, {
+      customer_name, customer_email, customer_phone, status, shipping_fee, discount_total, tax_total
+    });
+    if (!order) return res.status(404).json({ message: "Order not found." });
+    res.json(order);
+  } catch (err) {
+    console.error("[Order] Update error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};

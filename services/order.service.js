@@ -102,3 +102,26 @@ export const updateOrderStatus = async (orderId, status) => {
     return await prisma.order.update({ where: { id: orderId }, data: { status: status.toUpperCase() } });
   } catch (e) { return null; }
 };
+
+export const deleteOrder = async (orderId) => {
+  try {
+    await prisma.orderItem.deleteMany({ where: { order_id: orderId } });
+    await prisma.address.deleteMany({ where: { order_id: orderId } });
+    await prisma.order.delete({ where: { id: orderId } });
+    return true;
+  } catch (e) { return false; }
+};
+
+export const updateOrder = async (orderId, data) => {
+  try {
+    const updateData = {};
+    if (data.customer_name) updateData.customer_name = data.customer_name;
+    if (data.customer_email) updateData.customer_email = data.customer_email;
+    if (data.customer_phone !== undefined) updateData.customer_phone = data.customer_phone;
+    if (data.status) updateData.status = data.status.toUpperCase();
+    if (data.shipping_fee !== undefined) updateData.shipping_fee = Number(data.shipping_fee);
+    if (data.discount_total !== undefined) updateData.discount_total = Number(data.discount_total);
+    if (data.tax_total !== undefined) updateData.tax_total = Number(data.tax_total);
+    return await prisma.order.update({ where: { id: orderId }, data: updateData });
+  } catch (e) { return null; }
+};
