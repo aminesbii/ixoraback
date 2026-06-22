@@ -5,7 +5,8 @@ import * as ctrl from "../controllers/user.controller.js";
 
 const router = Router();
 
-// Self — update own profile
+// Self — get & update own profile
+router.get("/profile", verifyToken, limitReadsOnly, ctrl.getProfile);
 router.put("/profile", verifyToken, limitWritesOnly, ctrl.updateProfile);
 
 // Admin — user management

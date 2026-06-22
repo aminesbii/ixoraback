@@ -43,6 +43,18 @@ export const update = async (req, res) => {
   }
 };
 
+// ─── GET PROFILE (self) ────────────────────────────────────────────────────
+export const getProfile = async (req, res) => {
+  try {
+    const user = await userService.getProfile(req.user.userId);
+    if (!user) return res.status(404).json({ message: "User not found." });
+    res.json(user);
+  } catch (err) {
+    console.error("[User] GetProfile error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
 // ─── UPDATE PROFILE (self) ─────────────────────────────────────────────────
 export const updateProfile = async (req, res) => {
   try {
