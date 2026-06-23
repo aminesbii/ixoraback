@@ -170,3 +170,27 @@ export const update = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
+// ─── GET EARNINGS STATS (admin) ─────────────────────────────────────────────
+export const getEarningsStats = async (req, res) => {
+  try {
+    const { days } = req.query;
+    const stats = await orderService.getEarningsStats(Number(days) || 30);
+    res.json(stats);
+  } catch (err) {
+    console.error("[Order] EarningsStats error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// ─── GET ORDER STATUS STATS (admin) ─────────────────────────────────────────
+export const getOrderStatusStats = async (req, res) => {
+  try {
+    const { days } = req.query;
+    const stats = await orderService.getOrderStatusStats(Number(days) || 30);
+    res.json(stats);
+  } catch (err) {
+    console.error("[Order] StatusStats error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};

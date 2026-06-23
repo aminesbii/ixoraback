@@ -118,10 +118,10 @@ export const getPublicAnalytics = async (days = 30) => {
     _count: { _all: true }
   });
 
-  const clickCount = totalEvents.find(e => e.event_type === 'click')?._count._all || 0;
-  const viewCount = totalEvents.find(e => e.event_type === 'view')?._count._all || 0;
-  const cartCount = totalEvents.find(e => e.event_type === 'add_to_cart')?._count._all || 0;
-  const purchaseCount = totalEvents.find(e => e.event_type === 'purchase')?._count._all || 0;
+  const clickCount = totalEvents.find(e => e.event_type === 'CLICK')?._count._all || 0;
+  const viewCount = totalEvents.find(e => e.event_type === 'VIEW')?._count._all || 0;
+  const cartCount = totalEvents.find(e => e.event_type === 'ADD_TO_CART')?._count._all || 0;
+  const purchaseCount = totalEvents.find(e => e.event_type === 'PURCHASE')?._count._all || 0;
 
   const totalVisits = clickCount + viewCount;
   const conversionRate = totalVisits > 0 ? ((purchaseCount / totalVisits) * 100) : 0;
@@ -129,7 +129,7 @@ export const getPublicAnalytics = async (days = 30) => {
   // Top clicked products with full metrics
   const topClicks = await prisma.productEvent.groupBy({
     by: ['product_id'],
-    where: { event_type: 'click', created_at: { gte: since } },
+    where: { event_type: 'CLICK', created_at: { gte: since } },
     _count: { _all: true }
   });
 
@@ -139,13 +139,13 @@ export const getPublicAnalytics = async (days = 30) => {
   for (const productId of topProductIds) {
     const clicks = topClicks.find(e => e.product_id === productId)?._count._all || 0;
     const views = await prisma.productEvent.count({
-      where: { product_id: productId, event_type: 'view', created_at: { gte: since } }
+      where: { product_id: productId, event_type: 'VIEW', created_at: { gte: since } }
     });
     const carts = await prisma.productEvent.count({
-      where: { product_id: productId, event_type: 'add_to_cart', created_at: { gte: since } }
+      where: { product_id: productId, event_type: 'ADD_TO_CART', created_at: { gte: since } }
     });
     const purchases = await prisma.productEvent.count({
-      where: { product_id: productId, event_type: 'purchase', created_at: { gte: since } }
+      where: { product_id: productId, event_type: 'PURCHASE', created_at: { gte: since } }
     });
 
     const product = await prisma.product.findUnique({
@@ -170,17 +170,19 @@ export const getPublicAnalytics = async (days = 30) => {
   }
 
   // Daily breakdown for chart
-  const dailyRaw = await prisma.productEvent.groupBy({
+  const dailyRaw = await prisma.productPerformanceDaily.groupBy({
     by: ['date'],
-    where: { created_at: { gte: since } },
-    _count: { _all: true }
+    where: { date: { gte: since } },
+    _sum: {
+      click_count: true,
+      purchase_count: true
+    }
   });
 
   const dailyMap = {};
   for (const d of dailyRaw) {
     const key = new Date(d.date).toISOString().split('T')[0];
-    dailyMap[key] = dailyMap[key] || { date: key, visits: 0, purchases: 0 };
-    dailyMap[key].visits += d._count._all;
+    dailyMap[key] = { date: key, visits: d._sum.click_count || 0, purchases: d._sum.purchase_count || 0 };
   }
 
   const dailyMetrics = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));

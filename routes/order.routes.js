@@ -15,6 +15,12 @@ router.get("/track/:orderNumber", limitReadsOnly, ctrl.trackByNumber);
 // Authenticated user — my orders
 router.get("/mine", verifyToken, limitReadsOnly, ctrl.myOrders);
 
+// Admin — get earnings stats
+router.get("/earnings-stats", verifyToken, requireAdmin, limitReadsOnly, ctrl.getEarningsStats);
+
+// Admin — get order status stats
+router.get("/status-stats", verifyToken, requireAdmin, limitReadsOnly, ctrl.getOrderStatusStats);
+
 // Get specific order (authenticated, ownership check inside controller)
 router.get("/:id", verifyToken, limitReadsOnly, ctrl.getById);
 

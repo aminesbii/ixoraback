@@ -125,3 +125,54 @@ export const updateOrder = async (orderId, data) => {
     return await prisma.order.update({ where: { id: orderId }, data: updateData });
   } catch (e) { return null; }
 };
+
+export const getEarningsStats = async (days = 30) => {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  since.setHours(0, 0, 0, 0);
+
+  const groupData = await prisma.order.groupBy({
+    by: ['createdAt'],
+    where: {
+      status: { not: 'CANCELLED' }, // Ensure we don't count cancelled orders
+      createdAt: { gte: since }
+    },
+    _sum: { grand_total: true },
+    _count: { id: true },
+    orderBy: { createdAt: 'asc' }
+  });
+
+  const dailyMap = {};
+  for (let i = 0; i < days; i++) {
+    const d = new Date(since);
+    d.setDate(since.getDate() + i);
+    const key = d.toISOString().split('T')[0];
+    dailyMap[key] = { date: key, orders: 0, earnings: 0 };
+  }
+
+  for (const g of groupData) {
+    const key = new Date(g.createdAt).toISOString().split('T')[0];
+    if (dailyMap[key]) {
+      dailyMap[key].orders += g._count.id;
+      dailyMap[key].earnings += g._sum.grand_total || 0;
+    }
+  }
+
+  return Object.values(dailyMap);
+};
+
+export const getOrderStatusStats = async (days = 30) => {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const groupData = await prisma.order.groupBy({
+    by: ['status'],
+    where: { createdAt: { gte: since } },
+    _count: { id: true }
+  });
+
+  return groupData.map(g => ({
+    status: g.status,
+    count: g._count.id
+  }));
+};
