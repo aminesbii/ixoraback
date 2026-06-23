@@ -94,7 +94,7 @@ export const getOrders = async ({ page = 1, limit = 20, userId, status, sort = "
     prisma.order.count({ where }),
   ]);
 
-  return { orders: docs, pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / limit) } };
+  return { orders: docs, total, page: Number(page), pages: Math.ceil(total / limit) };
 };
 
 export const updateOrderStatus = async (orderId, status) => {

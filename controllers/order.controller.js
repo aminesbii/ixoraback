@@ -114,12 +114,13 @@ export const trackByNumber = async (req, res) => {
 // ─── LIST ALL ORDERS (admin) ────────────────────────────────────────────────
 export const listAll = async (req, res) => {
   try {
-    const { page, limit, status, sort } = req.query;
+    const { page, limit, status, sort, userId } = req.query;
     const result = await orderService.getOrders({
       page: Number(page) || 1,
       limit: Number(limit) || 20,
       status,
       sort,
+      userId,
     });
     res.json(result);
   } catch (err) {
