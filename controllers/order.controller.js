@@ -55,12 +55,13 @@ export const checkout = async (req, res) => {
 // ─── GET MY ORDERS (authenticated user) ─────────────────────────────────────
 export const myOrders = async (req, res) => {
   try {
-    const { page, limit, status } = req.query;
+    const { page, limit, status, sort } = req.query;
     const result = await orderService.getOrders({
       page: Number(page) || 1,
       limit: Number(limit) || 20,
       userId: req.user.userId,
       status,
+      sort,
     });
     res.json(result);
   } catch (err) {

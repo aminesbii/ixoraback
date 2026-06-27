@@ -1,15 +1,16 @@
 import { Router } from "express";
 import { verifyToken, requireAdmin } from "../middlewares/auth.middleware.js";
 import { limitReadsOnly, limitWritesOnly } from "../middlewares/rateLimits.js";
+import { cacheMiddleware } from "../middlewares/cache.middleware.js";
 import * as ctrl from "../controllers/category.controller.js";
 
 const router = Router();
 
-// Public
-router.get("/", limitReadsOnly, ctrl.list);
-router.get("/tree", limitReadsOnly, ctrl.tree);
-router.get("/slug/:slug", limitReadsOnly, ctrl.getBySlug);
-router.get("/:id", limitReadsOnly, ctrl.getById);
+// Public (cached for 5 minutes — categories change infrequently)
+router.get("/", limitReadsOnly, cacheMiddleware(300), ctrl.list);
+router.get("/tree", limitReadsOnly, cacheMiddleware(300), ctrl.tree);
+router.get("/slug/:slug", limitReadsOnly, cacheMiddleware(300), ctrl.getBySlug);
+router.get("/:id", limitReadsOnly, cacheMiddleware(300), ctrl.getById);
 
 // Admin
 router.post("/", verifyToken, requireAdmin, limitWritesOnly, ctrl.create);

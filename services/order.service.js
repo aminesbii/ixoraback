@@ -90,11 +90,43 @@ export const getOrders = async ({ page = 1, limit = 20, userId, status, sort = "
   if (sort === "createdAt") orderBy = { createdAt: 'asc' };
 
   const [docs, total] = await Promise.all([
-    prisma.order.findMany({ where, orderBy, skip, take: Number(limit) }),
+    prisma.order.findMany({
+      where,
+      orderBy,
+      skip,
+      take: Number(limit),
+      include: {
+        orderItems: {
+          include: {
+            product: {
+              include: {
+                images: { where: { is_main: true }, take: 1 }
+              }
+            }
+          }
+        }
+      }
+    }),
     prisma.order.count({ where }),
   ]);
 
-  return { orders: docs, total, page: Number(page), pages: Math.ceil(total / limit) };
+  const orders = docs.map(order => ({
+    ...order,
+    items: order.orderItems.map(item => ({
+      _id: item.id,
+      order_id: item.order_id,
+      product_id: item.product_id,
+      variant_id: item.variant_id,
+      product_name_snapshot: item.product_name_snapshot,
+      sku_snapshot: item.sku_snapshot,
+      unit_price_snapshot: item.unit_price_snapshot,
+      quantity: item.quantity,
+      line_total: item.line_total,
+      product_image: item.product?.images?.[0]?.image_url || null
+    }))
+  }));
+
+  return { orders, total, page: Number(page), pages: Math.ceil(total / limit) };
 };
 
 export const updateOrderStatus = async (orderId, status) => {
