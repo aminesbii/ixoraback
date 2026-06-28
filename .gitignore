@@ -2,3 +2,4 @@ node_modules
 uploads
 access.log
 /generated/prisma
+.env

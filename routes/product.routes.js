@@ -3,15 +3,16 @@ import { verifyToken, requireAdmin } from "../middlewares/auth.middleware.js";
 import { limitReadsOnly, limitWritesOnly } from "../middlewares/rateLimits.js";
 import upload from "../middlewares/upload.middleware.js";
 import { processSingleImage } from "../middlewares/imageProcessor.js";
+import { cacheMiddleware } from "../middlewares/cache.middleware.js";
 import * as ctrl from "../controllers/product.controller.js";
 
 const router = Router();
 
 // ─── Products ───────────────────────────────────────────────────────────────
-// Public
-router.get("/", limitReadsOnly, ctrl.list);
-router.get("/slug/:slug", limitReadsOnly, ctrl.getBySlug);
-router.get("/:id", limitReadsOnly, ctrl.getById);
+// Public (cached for 60s)
+router.get("/", limitReadsOnly, cacheMiddleware(60), ctrl.list);
+router.get("/slug/:slug", limitReadsOnly, cacheMiddleware(120), ctrl.getBySlug);
+router.get("/:id", limitReadsOnly, cacheMiddleware(120), ctrl.getById);
 
 // Admin
 router.post("/", verifyToken, requireAdmin, limitWritesOnly, ctrl.create);
@@ -19,7 +20,7 @@ router.put("/:id", verifyToken, requireAdmin, limitWritesOnly, ctrl.update);
 router.delete("/:id", verifyToken, requireAdmin, limitWritesOnly, ctrl.remove);
 
 // ─── Product Images ─────────────────────────────────────────────────────────
-router.get("/:productId/images", limitReadsOnly, ctrl.listImages);
+router.get("/:productId/images", limitReadsOnly, cacheMiddleware(300), ctrl.listImages);
 
 router.post(
   "/:productId/images",
@@ -70,7 +71,7 @@ router.post(
 );
 
 // ─── Product Variants ───────────────────────────────────────────────────────
-router.get("/:productId/variants", limitReadsOnly, ctrl.listVariants);
+router.get("/:productId/variants", limitReadsOnly, cacheMiddleware(300), ctrl.listVariants);
 
 router.post(
   "/:productId/variants",

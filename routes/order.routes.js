@@ -2,6 +2,7 @@ import { Router } from "express";
 import { verifyToken, requireAdmin } from "../middlewares/auth.middleware.js";
 import { optionalAuth } from "../middlewares/optionalAuth.middleware.js";
 import { limitReadsOnly, limitWritesOnly } from "../middlewares/rateLimits.js";
+import { cacheMiddleware } from "../middlewares/cache.middleware.js";
 import * as ctrl from "../controllers/order.controller.js";
 
 const router = Router();
@@ -14,6 +15,12 @@ router.get("/track/:orderNumber", limitReadsOnly, ctrl.trackByNumber);
 
 // Authenticated user — my orders
 router.get("/mine", verifyToken, limitReadsOnly, ctrl.myOrders);
+
+// Admin — get earnings stats (cached 5 min)
+router.get("/earnings-stats", verifyToken, requireAdmin, limitReadsOnly, cacheMiddleware(300), ctrl.getEarningsStats);
+
+// Admin — get order status stats (cached 5 min)
+router.get("/status-stats", verifyToken, requireAdmin, limitReadsOnly, cacheMiddleware(300), ctrl.getOrderStatusStats);
 
 // Get specific order (authenticated, ownership check inside controller)
 router.get("/:id", verifyToken, limitReadsOnly, ctrl.getById);

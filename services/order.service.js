@@ -90,11 +90,43 @@ export const getOrders = async ({ page = 1, limit = 20, userId, status, sort = "
   if (sort === "createdAt") orderBy = { createdAt: 'asc' };
 
   const [docs, total] = await Promise.all([
-    prisma.order.findMany({ where, orderBy, skip, take: Number(limit) }),
+    prisma.order.findMany({
+      where,
+      orderBy,
+      skip,
+      take: Number(limit),
+      include: {
+        orderItems: {
+          include: {
+            product: {
+              include: {
+                images: { where: { is_main: true }, take: 1 }
+              }
+            }
+          }
+        }
+      }
+    }),
     prisma.order.count({ where }),
   ]);
 
-  return { orders: docs, pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / limit) } };
+  const orders = docs.map(order => ({
+    ...order,
+    items: order.orderItems.map(item => ({
+      _id: item.id,
+      order_id: item.order_id,
+      product_id: item.product_id,
+      variant_id: item.variant_id,
+      product_name_snapshot: item.product_name_snapshot,
+      sku_snapshot: item.sku_snapshot,
+      unit_price_snapshot: item.unit_price_snapshot,
+      quantity: item.quantity,
+      line_total: item.line_total,
+      product_image: item.product?.images?.[0]?.image_url || null
+    }))
+  }));
+
+  return { orders, total, page: Number(page), pages: Math.ceil(total / limit) };
 };
 
 export const updateOrderStatus = async (orderId, status) => {
@@ -124,4 +156,55 @@ export const updateOrder = async (orderId, data) => {
     if (data.tax_total !== undefined) updateData.tax_total = Number(data.tax_total);
     return await prisma.order.update({ where: { id: orderId }, data: updateData });
   } catch (e) { return null; }
+};
+
+export const getEarningsStats = async (days = 30) => {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  since.setHours(0, 0, 0, 0);
+
+  const groupData = await prisma.order.groupBy({
+    by: ['createdAt'],
+    where: {
+      status: { not: 'CANCELLED' }, // Ensure we don't count cancelled orders
+      createdAt: { gte: since }
+    },
+    _sum: { grand_total: true },
+    _count: { id: true },
+    orderBy: { createdAt: 'asc' }
+  });
+
+  const dailyMap = {};
+  for (let i = 0; i < days; i++) {
+    const d = new Date(since);
+    d.setDate(since.getDate() + i);
+    const key = d.toISOString().split('T')[0];
+    dailyMap[key] = { date: key, orders: 0, earnings: 0 };
+  }
+
+  for (const g of groupData) {
+    const key = new Date(g.createdAt).toISOString().split('T')[0];
+    if (dailyMap[key]) {
+      dailyMap[key].orders += g._count.id;
+      dailyMap[key].earnings += g._sum.grand_total || 0;
+    }
+  }
+
+  return Object.values(dailyMap);
+};
+
+export const getOrderStatusStats = async (days = 30) => {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const groupData = await prisma.order.groupBy({
+    by: ['status'],
+    where: { createdAt: { gte: since } },
+    _count: { id: true }
+  });
+
+  return groupData.map(g => ({
+    status: g.status,
+    count: g._count.id
+  }));
 };

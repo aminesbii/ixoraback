@@ -55,12 +55,13 @@ export const checkout = async (req, res) => {
 // ─── GET MY ORDERS (authenticated user) ─────────────────────────────────────
 export const myOrders = async (req, res) => {
   try {
-    const { page, limit, status } = req.query;
+    const { page, limit, status, sort } = req.query;
     const result = await orderService.getOrders({
       page: Number(page) || 1,
       limit: Number(limit) || 20,
       userId: req.user.userId,
       status,
+      sort,
     });
     res.json(result);
   } catch (err) {
@@ -114,12 +115,13 @@ export const trackByNumber = async (req, res) => {
 // ─── LIST ALL ORDERS (admin) ────────────────────────────────────────────────
 export const listAll = async (req, res) => {
   try {
-    const { page, limit, status, sort } = req.query;
+    const { page, limit, status, sort, userId } = req.query;
     const result = await orderService.getOrders({
       page: Number(page) || 1,
       limit: Number(limit) || 20,
       status,
       sort,
+      userId,
     });
     res.json(result);
   } catch (err) {
@@ -167,6 +169,30 @@ export const update = async (req, res) => {
     res.json(order);
   } catch (err) {
     console.error("[Order] Update error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// ─── GET EARNINGS STATS (admin) ─────────────────────────────────────────────
+export const getEarningsStats = async (req, res) => {
+  try {
+    const { days } = req.query;
+    const stats = await orderService.getEarningsStats(Number(days) || 30);
+    res.json(stats);
+  } catch (err) {
+    console.error("[Order] EarningsStats error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// ─── GET ORDER STATUS STATS (admin) ─────────────────────────────────────────
+export const getOrderStatusStats = async (req, res) => {
+  try {
+    const { days } = req.query;
+    const stats = await orderService.getOrderStatusStats(Number(days) || 30);
+    res.json(stats);
+  } catch (err) {
+    console.error("[Order] StatusStats error:", err);
     res.status(500).json({ message: "Internal server error." });
   }
 };

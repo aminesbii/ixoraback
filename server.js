@@ -8,6 +8,7 @@ import helmet from "helmet";
 
 // Import Redis Client and connections
 import redisClient, { connectRedis } from "./config/redis.js";
+import { cacheMiddleware } from "./middlewares/cache.middleware.js";
 
 // Prisma
 import prisma from "./config/prisma.js";
@@ -138,58 +139,6 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/analytics", analyticsRoutes);
-
-/**
- * Cache Middleware using Redis
- * @param {number} durationInSeconds - Cache duration
- */
-export const cacheMiddleware = (durationInSeconds = 60) => {
-  return async (req, res, next) => {
-    if (req.method !== "GET") {
-      return next();
-    }
-
-    // If Redis is not connected/ready, bypass cache gracefully
-    if (redisClient.status !== "ready") {
-      return next();
-    }
-
-    const key = `express-cache:${req.originalUrl || req.url}`;
-
-    try {
-      const cachedResponse = await redisClient.get(key);
-      if (cachedResponse) {
-        res.setHeader("X-Cache", "HIT");
-        res.setHeader("Content-Type", "application/json");
-        return res.send(cachedResponse);
-      }
-
-      res.setHeader("X-Cache", "MISS");
-
-      // Intercept and store response in cache
-      const originalSend = res.send;
-      res.send = function (body) {
-        if (res.statusCode === 200) {
-          redisClient
-            .setex(
-              key,
-              durationInSeconds,
-              typeof body === "string" ? body : JSON.stringify(body)
-            )
-            .catch((err) =>
-              console.warn(`[Redis] Error setting key ${key}: ${err.message || err}`)
-            );
-        }
-        return originalSend.call(this, body);
-      };
-
-      next();
-    } catch (err) {
-      console.warn(`[Redis] Cache error: ${err.message || err}`);
-      next();
-    }
-  };
-};
 
 // Health Check API
 app.get("/api/health", async (req, res) => {
