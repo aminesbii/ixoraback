@@ -22,6 +22,7 @@ import orderRoutes from "./routes/order.routes.js";
 import addressRoutes from "./routes/address.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
+import settingsRoutes from "./routes/settings.routes.js";
 
 // Load Environment Variables
 dotenv.config({ path: path.resolve(process.cwd(), "config/.env") });
@@ -139,6 +140,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Health Check API
 app.get("/api/health", async (req, res) => {

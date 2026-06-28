@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { verifyToken, requireAdmin } from "../middlewares/auth.middleware.js";
+import { verifyToken, requireAdminOrManager, requirePermission } from "../middlewares/auth.middleware.js";
 import { limitReadsOnly, limitWritesOnly } from "../middlewares/rateLimits.js";
 import upload from "../middlewares/upload.middleware.js";
 import { processSingleImage } from "../middlewares/imageProcessor.js";
@@ -15,9 +15,9 @@ router.get("/slug/:slug", limitReadsOnly, cacheMiddleware(120), ctrl.getBySlug);
 router.get("/:id", limitReadsOnly, cacheMiddleware(120), ctrl.getById);
 
 // Admin
-router.post("/", verifyToken, requireAdmin, limitWritesOnly, ctrl.create);
-router.put("/:id", verifyToken, requireAdmin, limitWritesOnly, ctrl.update);
-router.delete("/:id", verifyToken, requireAdmin, limitWritesOnly, ctrl.remove);
+router.post("/", verifyToken, requireAdminOrManager, requirePermission("products"), limitWritesOnly, ctrl.create);
+router.put("/:id", verifyToken, requireAdminOrManager, requirePermission("products"), limitWritesOnly, ctrl.update);
+router.delete("/:id", verifyToken, requireAdminOrManager, requirePermission("products"), limitWritesOnly, ctrl.remove);
 
 // ─── Product Images ─────────────────────────────────────────────────────────
 router.get("/:productId/images", limitReadsOnly, cacheMiddleware(300), ctrl.listImages);
@@ -25,7 +25,7 @@ router.get("/:productId/images", limitReadsOnly, cacheMiddleware(300), ctrl.list
 router.post(
   "/:productId/images",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   upload.single("image"),
   processSingleImage(),
   ctrl.addImage
@@ -34,28 +34,28 @@ router.post(
 router.put(
   "/:productId/images/:imageId",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   ctrl.updateImage
 );
 
 router.delete(
   "/:productId/images/:imageId",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   ctrl.deleteImage
 );
 
 router.patch(
   "/:productId/images/:imageId/main",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   ctrl.setMainImage
 );
 
 router.post(
   "/:productId/images/featured1",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   upload.single("image"),
   processSingleImage(),
   ctrl.addFeatured1Image
@@ -64,7 +64,7 @@ router.post(
 router.post(
   "/:productId/images/featured2",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   upload.single("image"),
   processSingleImage(),
   ctrl.addFeatured2Image
@@ -76,7 +76,7 @@ router.get("/:productId/variants", limitReadsOnly, cacheMiddleware(300), ctrl.li
 router.post(
   "/:productId/variants",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   limitWritesOnly,
   ctrl.addVariant
 );
@@ -84,7 +84,7 @@ router.post(
 router.put(
   "/:productId/variants/:variantId",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   limitWritesOnly,
   ctrl.updateVariant
 );
@@ -92,7 +92,7 @@ router.put(
 router.delete(
   "/:productId/variants/:variantId",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   limitWritesOnly,
   ctrl.deleteVariant
 );
@@ -100,7 +100,7 @@ router.delete(
 router.patch(
   "/:productId/variants/:variantId/stock",
   verifyToken,
-  requireAdmin,
+  requireAdminOrManager, requirePermission("products"),
   ctrl.adjustStock
 );
 

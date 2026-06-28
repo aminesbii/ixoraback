@@ -35,7 +35,7 @@ export const getUserById = (id) => prisma.user.findUnique({ where: { id } });
 
 // ─── GET PROFILE (self) ─────────────────────────────────────────────────────
 export const getProfile = (id) =>
-  prisma.user.findUnique({ where: { id }, select: { id: true, full_name: true, email: true, phone: true, role: true, status: true, createdAt: true, updatedAt: true } });
+  prisma.user.findUnique({ where: { id }, select: { id: true, full_name: true, email: true, phone: true, role: true, status: true, permissions: true, createdAt: true, updatedAt: true } });
 
 // ─── UPDATE USER (admin) ────────────────────────────────────────────────────
 export const updateUser = async (id, data) => {

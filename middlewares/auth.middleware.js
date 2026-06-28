@@ -40,6 +40,42 @@ export const requireAdmin = (req, res, next) => {
 };
 
 /**
+ * Middleware: Requires the authenticated user to be an admin OR manager.
+ * Must be used AFTER `verifyToken`.
+ */
+export const requireAdminOrManager = (req, res, next) => {
+  const role = (req.user?.role || '').toLowerCase();
+  if (role !== "admin" && role !== "manager") {
+    return res.status(403).json({ message: "Access denied. Admin or manager role required." });
+  }
+  next();
+};
+
+/**
+ * Middleware: Checks that the user has a specific page permission.
+ * Admin users bypass this check. Must be used AFTER `verifyToken`.
+ * @param {string} requiredPermission - e.g. "products", "orders", "analytics"
+ */
+export const requirePermission = (requiredPermission) => {
+  return (req, res, next) => {
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === "admin") return next();
+
+    let perms = [];
+    try {
+      perms = JSON.parse(req.user?.permissions || "[]");
+    } catch {
+      perms = [];
+    }
+
+    if (!perms.includes(requiredPermission)) {
+      return res.status(403).json({ message: `Access denied. '${requiredPermission}' permission required.` });
+    }
+    next();
+  };
+};
+
+/**
  * Helper: Sign a JWT for the given user document.
  * @param {import('../models/user.model.js').default} user
  * @returns {string}
@@ -51,6 +87,7 @@ export const signToken = (user) => {
       email: user.email,
       role: (user.role || '').toLowerCase(),
       status: user.status,
+      permissions: user.permissions || "[]",
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }

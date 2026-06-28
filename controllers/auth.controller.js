@@ -41,6 +41,7 @@ export const register = async (req, res) => {
       email: user.email,
       role: user.role,
       status: user.status,
+      permissions: user.permissions ? JSON.parse(user.permissions) : [],
     });
   } catch (err) {
     console.error("[Auth] Register error:", err);
@@ -80,6 +81,7 @@ export const login = async (req, res) => {
       email: user.email,
       role: user.role,
       status: user.status,
+      permissions: user.permissions ? JSON.parse(user.permissions) : [],
     });
   } catch (err) {
     console.error("[Auth] Login error:", err);
@@ -171,6 +173,7 @@ export const me = async (req, res) => {
       phone: user.phone,
       role: user.role,
       status: user.status,
+      permissions: user.permissions ? JSON.parse(user.permissions) : [],
     });
   } catch (err) {
     console.error("[Auth] Me error:", err);
