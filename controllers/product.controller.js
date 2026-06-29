@@ -7,15 +7,18 @@ import path from "path";
 
 export const list = async (req, res) => {
   try {
-    const { page, limit, status, category_id, is_featured, search, sort } = req.query;
+    const { page, limit, status, category_id, is_featured, on_sale, search, sort, priceMin, priceMax } = req.query;
     const result = await productService.getProducts({
       page: Number(page) || 1,
       limit: Number(limit) || 20,
       status,
       category_id,
       is_featured: is_featured !== undefined ? is_featured === "true" : undefined,
+      on_sale: on_sale !== undefined ? on_sale === "true" : undefined,
       search,
       sort,
+      priceMin,
+      priceMax,
     });
     res.json(result);
   } catch (err) {

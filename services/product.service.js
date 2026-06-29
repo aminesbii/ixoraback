@@ -20,13 +20,22 @@ export const getProducts = async ({
   status,
   category_id,
   is_featured,
+  on_sale,
   search,
   sort = "-createdAt",
+  priceMin,
+  priceMax,
 } = {}) => {
   const where = {};
   if (status) where.status = status.toUpperCase();
   if (category_id) where.category_id = category_id;
   if (is_featured !== undefined) where.is_featured = String(is_featured) === 'true';
+  if (on_sale !== undefined) where.on_sale = String(on_sale) === 'true';
+  if (priceMin !== undefined || priceMax !== undefined) {
+    where.base_price = {};
+    if (priceMin !== undefined) where.base_price.gte = Number(priceMin);
+    if (priceMax !== undefined) where.base_price.lte = Number(priceMax);
+  }
 
   if (search) {
     where.OR = [

@@ -63,6 +63,10 @@ model Product {
   details           Json?    @default("{}")
   status            ProductStatus @default(DRAFT)
   is_featured       Boolean  @default(false)
+  on_sale           Boolean  @default(false)
+  sale_percentage   Int?
+  base_price        Float?
+  currency          String   @default("TND") @db.VarChar(3)
   clicks            Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
