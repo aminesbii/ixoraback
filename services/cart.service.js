@@ -51,6 +51,16 @@ export const addToCart = async ({ cartId, productId, variantId, quantity = 1 }) 
     if (!variant.is_active) throw new Error("Variant is not active");
     if (variant.stock_qty < quantity) throw new Error("Insufficient stock");
     unitPrice = variant.price;
+  } else {
+    // Treat as base product
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) throw new Error("Product not found");
+    // Optionally check product stock if available, but for now just safely get price
+    if (product.on_sale && product.sale_percentage) {
+      unitPrice = product.base_price * (1 - (product.sale_percentage / 100));
+    } else {
+      unitPrice = product.base_price || 0;
+    }
   }
 
   const existing = await prisma.cartItem.findFirst({

@@ -104,4 +104,13 @@ router.patch(
   ctrl.adjustStock
 );
 
+router.post(
+  "/:productId/variants/:variantId/image",
+  verifyToken,
+  requireAdminOrManager, requirePermission("products"),
+  upload.single("image"),
+  processSingleImage(),
+  ctrl.uploadVariantImage
+);
+
 export default router;

@@ -280,3 +280,21 @@ export const adjustStock = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+export const uploadVariantImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Image file is required." });
+    }
+    const imageUrl = `/api/uploads/${req.file.filename}`;
+    const variant = await productService.updateProductVariant(req.params.variantId, {
+      image_url: imageUrl,
+    });
+    if (!variant) return res.status(404).json({ message: "Variant not found." });
+    res.json(variant);
+  } catch (err) {
+    console.error("[ProductVariant] UploadImage error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+

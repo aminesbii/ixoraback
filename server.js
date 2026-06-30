@@ -118,9 +118,9 @@ const serveUpload = (req, res) => {
   const ext = path.extname(filename).toLowerCase();
   const mime = ext === '.webp' ? 'image/webp' :
     ext === '.png' ? 'image/png' :
-    ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
-    ext === '.gif' ? 'image/gif' :
-    ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream';
+      ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+        ext === '.gif' ? 'image/gif' :
+          ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream';
   res.setHeader('Content-Type', mime);
   res.setHeader('Cache-Control', 'public, max-age=31536000');
   res.sendFile(filePath);
@@ -198,5 +198,4 @@ const startServer = async () => {
 
 // Start the application server
 startServer();
-// Touch comment to trigger nodemon restart
-
+// Touch comment to trigger nodemon restart!
