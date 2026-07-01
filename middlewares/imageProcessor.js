@@ -4,10 +4,11 @@ import path from "path";
 
 const MAX_W = Number(process.env.IMAGE_MAX_WIDTH ?? 1920);
 const MAX_H = Number(process.env.IMAGE_MAX_HEIGHT ?? 1080);
-const MAX_KB = Number(process.env.IMAGE_MAX_KB ?? 400); // target cap in KB
+const MAX_KB = Number(process.env.IMAGE_MAX_KB ?? 400);
 const MIN_QUALITY = Number(process.env.IMAGE_MIN_QUALITY ?? 50);
 const START_QUALITY = Number(process.env.IMAGE_START_QUALITY ?? 85);
 const QUALITY_STEP = Number(process.env.IMAGE_QUALITY_STEP ?? 10);
+const THUMB_W = Number(process.env.IMAGE_THUMB_WIDTH ?? 300);
 
 async function processFileAtPath(filePath) {
   const input = await fs.promises.readFile(filePath);
@@ -15,7 +16,6 @@ async function processFileAtPath(filePath) {
 
   let resizeOptions = null;
   if ((meta.width ?? 0) > MAX_W || (meta.height ?? 0) > MAX_H) {
-    // Too large → downscale inside 1920x1080
     resizeOptions = {
       width: MAX_W,
       height: MAX_H,
@@ -33,13 +33,18 @@ async function processFileAtPath(filePath) {
     if (buffer.length <= MAX_KB * 1024 || quality <= MIN_QUALITY) break;
     quality = Math.max(MIN_QUALITY, quality - QUALITY_STEP);
     if (quality === MIN_QUALITY) {
-      // one last encode at min quality already done, break next loop
-      // but ensure we don't infinite loop
       if (buffer.length <= MAX_KB * 1024) break;
-      else break; // accept best-effort
+      else break;
     }
   }
-  return { buffer, format: "webp" };
+
+  // Generate thumbnail (300px-wide WebP)
+  const thumbBuffer = await sharp(input)
+    .resize(THUMB_W, null, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 70, effort: 4 })
+    .toBuffer();
+
+  return { buffer, thumbBuffer, format: "webp" };
 }
 
 function replaceExt(filePath, newExt) {
@@ -50,22 +55,27 @@ function replaceExt(filePath, newExt) {
   );
 }
 
+function thumbnailPath(filePath) {
+  const parsed = path.parse(filePath);
+  return path.join(parsed.dir, `${parsed.name}-thumb${parsed.ext}`);
+}
+
 export const processSingleImage = () => async (req, res, next) => {
   try {
     if (!req.file || !req.file.path) return next();
     const mime = req.file.mimetype || '';
     if (!mime.startsWith("image/")) return next();
-    // Skip Sharp for SVGs – Sharp does not support SVG
     if (mime === "image/svg+xml") return next();
     const originalPath = req.file.path;
-    const { buffer, format } = await processFileAtPath(originalPath);
+    const { buffer, thumbBuffer, format } = await processFileAtPath(originalPath);
     const newPath = replaceExt(originalPath, `.${format}`);
     await fs.promises.writeFile(newPath, buffer);
-    // Remove original file if path/ext changed
+    // Save thumbnail
+    const thumbPath = thumbnailPath(newPath);
+    await fs.promises.writeFile(thumbPath, thumbBuffer);
     if (newPath !== originalPath && fs.existsSync(originalPath)) {
       await fs.promises.unlink(originalPath).catch(() => { });
     }
-    // Update req.file to point to processed file
     req.file.path = newPath;
     req.file.size = buffer.length;
     req.file.mimetype = `image/${format}`;
@@ -89,9 +99,12 @@ export const processImageFields =
                 const fmime = file.mimetype || '';
                 if (!fmime.startsWith("image/")) continue;
                 if (fmime === "image/svg+xml") continue;
-                const { buffer, format } = await processFileAtPath(file.path);
+                const { buffer, thumbBuffer, format } = await processFileAtPath(file.path);
                 const newPath = replaceExt(file.path, `.${format}`);
                 await fs.promises.writeFile(newPath, buffer);
+                // Save thumbnail
+                const thumbPath = thumbnailPath(newPath);
+                await fs.promises.writeFile(thumbPath, thumbBuffer);
                 if (newPath !== file.path && fs.existsSync(file.path)) {
                   await fs.promises.unlink(file.path).catch(() => { });
                 }

@@ -20,13 +20,22 @@ export const getProducts = async ({
   status,
   category_id,
   is_featured,
+  on_sale,
   search,
   sort = "-createdAt",
+  priceMin,
+  priceMax,
 } = {}) => {
   const where = {};
   if (status) where.status = status.toUpperCase();
   if (category_id) where.category_id = category_id;
   if (is_featured !== undefined) where.is_featured = String(is_featured) === 'true';
+  if (on_sale !== undefined) where.on_sale = String(on_sale) === 'true';
+  if (priceMin !== undefined || priceMax !== undefined) {
+    where.base_price = {};
+    if (priceMin !== undefined) where.base_price.gte = Number(priceMin);
+    if (priceMax !== undefined) where.base_price.lte = Number(priceMax);
+  }
 
   if (search) {
     where.OR = [
@@ -52,7 +61,19 @@ export const getProducts = async ({
           select: { name: true, slug: true }
         },
         images: {
-          orderBy: { sort_order: 'asc' }
+          take: 1,
+          orderBy: [
+            { featured1: 'desc' },
+            { is_main: 'desc' },
+            { sort_order: 'asc' }
+          ],
+          select: {
+            id: true,
+            image_url: true,
+            alt_text: true,
+            is_main: true,
+            featured1: true,
+          }
         },
         variants: {
           where: { is_active: true }
@@ -62,8 +83,20 @@ export const getProducts = async ({
     prisma.product.count({ where }),
   ]);
 
+  // Add thumbnail_url to the single primary image (by convention: {base}-thumb.webp)
+  const products = docs.map(p => ({
+    ...p,
+    images: p.images?.map(img => ({
+      ...img,
+      featured1: true,
+      thumbnail_url: img.image_url
+        ? img.image_url.replace(/(\.\w+)$/, '-thumb$1')
+        : null,
+    })) || [],
+  }));
+
   return {
-    products: docs,
+    products,
     pagination: {
       page: Number(page),
       limit: Number(limit),

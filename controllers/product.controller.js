@@ -7,15 +7,18 @@ import path from "path";
 
 export const list = async (req, res) => {
   try {
-    const { page, limit, status, category_id, is_featured, search, sort } = req.query;
+    const { page, limit, status, category_id, is_featured, on_sale, search, sort, priceMin, priceMax } = req.query;
     const result = await productService.getProducts({
       page: Number(page) || 1,
       limit: Number(limit) || 20,
       status,
       category_id,
       is_featured: is_featured !== undefined ? is_featured === "true" : undefined,
+      on_sale: on_sale !== undefined ? on_sale === "true" : undefined,
       search,
       sort,
+      priceMin,
+      priceMax,
     });
     res.json(result);
   } catch (err) {
@@ -277,3 +280,21 @@ export const adjustStock = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+export const uploadVariantImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Image file is required." });
+    }
+    const imageUrl = `/api/uploads/${req.file.filename}`;
+    const variant = await productService.updateProductVariant(req.params.variantId, {
+      image_url: imageUrl,
+    });
+    if (!variant) return res.status(404).json({ message: "Variant not found." });
+    res.json(variant);
+  } catch (err) {
+    console.error("[ProductVariant] UploadImage error:", err);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+

@@ -14,6 +14,7 @@ model User {
   passwordHash String
   role         Role     @default(CUSTOMER)
   status       Status   @default(ACTIVE)
+  permissions  String   @default("[]")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -26,6 +27,7 @@ model User {
 enum Role {
   ADMIN
   CUSTOMER
+  MANAGER
 }
 
 enum Status {
@@ -61,6 +63,10 @@ model Product {
   details           Json?    @default("{}")
   status            ProductStatus @default(DRAFT)
   is_featured       Boolean  @default(false)
+  on_sale           Boolean  @default(false)
+  sale_percentage   Int?
+  base_price        Float?
+  currency          String   @default("TND") @db.VarChar(3)
   clicks            Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -93,6 +99,7 @@ model ProductVariant {
   currency         String   @default("MAD") @db.VarChar(3)
   stock_qty        Int      @default(0)
   is_active        Boolean  @default(true)
+  image_url        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
